@@ -330,6 +330,42 @@ namespace ModBusLIB
             }
         }
 
+        private bool IsExpectedResponse(byte[] packet)
+        {
+            lock (request_lock)
+            {
+                if (!request_pending || packet == null || packet.Length < 5)
+                    return false;
+                if (packet[0] != pending_slave_id || (packet[1] & 0x7F) != pending_function)
+                    return false;
+
+                bool exception = (packet[1] & 0x80) != 0;
+                if (exception)
+                    return packet.Length == 5;
+
+                if (pending_function >= 0x01 && pending_function <= 0x04)
+                {
+                    ushort requestedCount = (ushort)((pending_frame[4] << 8) | pending_frame[5]);
+                    int expectedBytes = (pending_function == 0x01 || pending_function == 0x02)
+                        ? (requestedCount + 7) / 8
+                        : requestedCount * 2;
+                    return packet[2] == expectedBytes && packet.Length == expectedBytes + 5;
+                }
+
+                if (pending_function == 0x05 || pending_function == 0x06 ||
+                    pending_function == 0x0F || pending_function == 0x10)
+                {
+                    if (packet.Length != 8)
+                        return false;
+                    for (int i = 2; i <= 5; i++)
+                        if (packet[i] != pending_frame[i])
+                            return false;
+                    return true;
+                }
+                return false;
+            }
+        }
+
         private void CheckRequestTimeout()
         {
             RequestTimeoutArgs timeout = null;
@@ -421,6 +457,12 @@ namespace ModBusLIB
                             }
 
                             if (!crc_okk)
+                            {
+                                new_packet = false;
+                                return;
+                            }
+
+                            if (!IsExpectedResponse(packet))
                             {
                                 new_packet = false;
                                 return;
