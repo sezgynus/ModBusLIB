@@ -162,25 +162,25 @@ namespace ModBusLIB
         {
             ValidateRequest(slave_id, start, count, 1, 2000);
             modbus_read_serializer(0x01, slave_id, start, count);
-            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
+            SendRequest(slave_id, 0x01, 8);
         }
         public void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)//0x02
         {
             ValidateRequest(slave_id, start, count, 1, 2000);
             modbus_read_serializer(0x02, slave_id, start, count);
-            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
+            SendRequest(slave_id, 0x02, 8);
         }
         public void ReadHoldingRegisters(byte slave_id, ushort start, ushort count)//0x03
         {
             ValidateRequest(slave_id, start, count, 1, 125);
             modbus_read_serializer(0x03, slave_id, start, count);
-            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
+            SendRequest(slave_id, 0x03, 8);
         }
         public void ReadInputRegisters(byte slave_id, ushort start, ushort count)//0x04
         {
             ValidateRequest(slave_id, start, count, 1, 125);
             modbus_read_serializer(0x04, slave_id, start, count);
-            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
+            SendRequest(slave_id, 0x04, 8);
         }
         public void WriteSingleCoil(byte slave_id, ushort adress, bool coil_value)//0x05
         {
@@ -208,7 +208,7 @@ namespace ModBusLIB
                 throw new ArgumentException("Packed coil data is shorter than the requested quantity.", nameof(pdata));
             int packet_size;
             packet_size=modbus_write_serializer(0x0F, slave_id, start, count, pdata);
-            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, packet_size);
+            SendRequest(slave_id, 0x0F, packet_size);
             return packet_size;
         }
         public int WriteSingleRegister(byte slave_id, ushort adress, ushort udata)//0x06
