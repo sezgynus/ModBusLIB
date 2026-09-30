@@ -432,6 +432,22 @@ namespace ModBusLIB.Tests
                 "malformed short packet is ignored without completing request");
         }
 
+
+        private static void TestResponseHandlerExceptionIsolation()
+        {
+            var bus = new ModBus();
+            int called = 0;
+            bus.ReadHoldingRegistersResponseHandler += (sender, e) => { throw new InvalidOperationException("consumer failure"); };
+            bus.ReadHoldingRegistersResponseHandler += (sender, e) => { called++; };
+
+            byte[] request = WithCrc(bus, 1, 3, 0, 0, 0, 1);
+            PreparePending(bus, 1, 3, request);
+            byte[] response = WithCrc(bus, 1, 3, 2, 0x12, 0x34);
+            Invoke(bus, "ProcessPacket", response);
+
+            Assert(called == 1, "response callback failure does not block later subscribers");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -445,6 +461,7 @@ namespace ModBusLIB.Tests
             TestTimeoutConfigurationValidation();
             TestPacketDispatch();
             TestTimeoutAndExceptionLifecycle();
+            TestResponseHandlerExceptionIsolation();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);

@@ -673,6 +673,24 @@ namespace ModBusLIB
             ProcessPacket(packet);
         }
 
+        private void SafeInvoke(EventHandler<ReadResponseArgs> handler, ReadResponseArgs response)
+        {
+            if (handler == null)
+                return;
+
+            foreach (EventHandler<ReadResponseArgs> subscriber in handler.GetInvocationList())
+            {
+                try
+                {
+                    subscriber(this, response);
+                }
+                catch
+                {
+                    // Consumer callback failures must not terminate the Modbus worker thread.
+                }
+            }
+        }
+
         private void ProcessPacket(byte[] packet)
         {
             if (packet == null || packet.Length < 5)
@@ -716,28 +734,28 @@ namespace ModBusLIB
             switch (function)
             {
                 case 0x01:
-                    ReadCoilsResponseHandler?.Invoke(this, response);
+                    SafeInvoke(ReadCoilsResponseHandler, response);
                     break;
                 case 0x02:
-                    ReadDiscreteInputsResponseHandler?.Invoke(this, response);
+                    SafeInvoke(ReadDiscreteInputsResponseHandler, response);
                     break;
                 case 0x03:
-                    ReadHoldingRegistersResponseHandler?.Invoke(this, response);
+                    SafeInvoke(ReadHoldingRegistersResponseHandler, response);
                     break;
                 case 0x04:
-                    ReadInputRegistersResponseHandler?.Invoke(this, response);
+                    SafeInvoke(ReadInputRegistersResponseHandler, response);
                     break;
                 case 0x05:
-                    WriteSingleCoilResponseHandler?.Invoke(this, response);
+                    SafeInvoke(WriteSingleCoilResponseHandler, response);
                     break;
                 case 0x06:
-                    WriteSingleRegisterResponseHandler?.Invoke(this, response);
+                    SafeInvoke(WriteSingleRegisterResponseHandler, response);
                     break;
                 case 0x0F:
-                    WriteMultipleCoilsResponseHandler?.Invoke(this, response);
+                    SafeInvoke(WriteMultipleCoilsResponseHandler, response);
                     break;
                 case 0x10:
-                    WriteMultipleRegistersResponseHandler?.Invoke(this, response);
+                    SafeInvoke(WriteMultipleRegistersResponseHandler, response);
                     break;
             }
         }
