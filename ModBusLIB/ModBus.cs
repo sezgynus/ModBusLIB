@@ -592,7 +592,7 @@ namespace ModBusLIB
             }
 
             if (timeout != null)
-                RequestTimeoutHandler?.Invoke(this, timeout);
+                SafeInvoke(RequestTimeoutHandler, timeout);
         }
 
         private void serial_rx(object sender, SerialDataReceivedEventArgs e)
@@ -671,6 +671,24 @@ namespace ModBusLIB
             }
 
             ProcessPacket(packet);
+        }
+
+        private void SafeInvoke(EventHandler<RequestTimeoutArgs> handler, RequestTimeoutArgs timeout)
+        {
+            if (handler == null)
+                return;
+
+            foreach (EventHandler<RequestTimeoutArgs> subscriber in handler.GetInvocationList())
+            {
+                try
+                {
+                    subscriber(this, timeout);
+                }
+                catch
+                {
+                    // Consumer callback failures must not terminate the Modbus worker thread.
+                }
+            }
         }
 
         private void SafeInvoke(EventHandler<ReadResponseArgs> handler, ReadResponseArgs response)

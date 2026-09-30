@@ -448,6 +448,20 @@ namespace ModBusLIB.Tests
             Assert(called == 1, "response callback failure does not block later subscribers");
         }
 
+
+        private static void TestTimeoutHandlerExceptionIsolation()
+        {
+            var bus = new ModBus();
+            int called = 0;
+            bus.RequestTimeoutHandler += (sender, e) => { throw new InvalidOperationException("consumer failure"); };
+            bus.RequestTimeoutHandler += (sender, e) => { called++; };
+
+            var args = new ModBus.RequestTimeoutArgs { SlaveId = 1, Function = 3, Retries = 0 };
+            Invoke(bus, "SafeInvoke", bus.RequestTimeoutHandler, args);
+
+            Assert(called == 1, "timeout callback failure does not block later subscribers");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -462,6 +476,7 @@ namespace ModBusLIB.Tests
             TestPacketDispatch();
             TestTimeoutAndExceptionLifecycle();
             TestResponseHandlerExceptionIsolation();
+            TestTimeoutHandlerExceptionIsolation();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
