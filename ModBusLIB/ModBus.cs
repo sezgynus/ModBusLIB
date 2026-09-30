@@ -311,16 +311,16 @@ namespace ModBusLIB
                 tx_buf[0] = slave_id;
                 tx_buf[1] = function;
 
-                tx_buf[2] = BitConverter.GetBytes(start)[1];
-                tx_buf[3] = BitConverter.GetBytes(start)[0];
+                tx_buf[2] = (byte)(start >> 8);
+                tx_buf[3] = (byte)start;
 
-                tx_buf[4] = BitConverter.GetBytes(count)[1];
-                tx_buf[5] = BitConverter.GetBytes(count)[0];
+                tx_buf[4] = (byte)(count >> 8);
+                tx_buf[5] = (byte)count;
 
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
 
-                tx_buf[6] = BitConverter.GetBytes(calculated_crc)[0];
-                tx_buf[7] = BitConverter.GetBytes(calculated_crc)[1];
+                tx_buf[6] = (byte)calculated_crc;
+                tx_buf[7] = (byte)(calculated_crc >> 8);
                 l = 8;
             }
             return l;
@@ -338,14 +338,14 @@ namespace ModBusLIB
                 tx_buf[0] = slave_id;
                 tx_buf[1] = function;
 
-                tx_buf[2] = BitConverter.GetBytes(start)[1];
-                tx_buf[3] = BitConverter.GetBytes(start)[0];
+                tx_buf[2] = (byte)(start >> 8);
+                tx_buf[3] = (byte)start;
 
                 tx_buf[4] = bdata[0];
                 tx_buf[5] = bdata[1];
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
-                tx_buf[l - 2] = BitConverter.GetBytes(calculated_crc)[0];
-                tx_buf[l - 1] = BitConverter.GetBytes(calculated_crc)[1];
+                tx_buf[l - 2] = (byte)calculated_crc;
+                tx_buf[l - 1] = (byte)(calculated_crc >> 8);
                 
             }
             else if (function == 0x0F)
@@ -353,11 +353,11 @@ namespace ModBusLIB
                 tx_buf[0] = slave_id;
                 tx_buf[1] = function;
 
-                tx_buf[2] = BitConverter.GetBytes(start)[1];
-                tx_buf[3] = BitConverter.GetBytes(start)[0];
+                tx_buf[2] = (byte)(start >> 8);
+                tx_buf[3] = (byte)start;
 
-                tx_buf[4] = BitConverter.GetBytes(count)[1];
-                tx_buf[5] = BitConverter.GetBytes(count)[0];
+                tx_buf[4] = (byte)(count >> 8);
+                tx_buf[5] = (byte)count;
                 if ((count % 8) == 0) tx_buf[6] = (byte)(count / 8);
                 else tx_buf[6] = (byte)((count / 8) + 1);
                 l = 7;
@@ -368,8 +368,8 @@ namespace ModBusLIB
                 }
                 l += 2;
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
-                tx_buf[l - 2] = BitConverter.GetBytes(calculated_crc)[0];
-                tx_buf[l - 1] = BitConverter.GetBytes(calculated_crc)[1];
+                tx_buf[l - 2] = (byte)calculated_crc;
+                tx_buf[l - 1] = (byte)(calculated_crc >> 8);
             }
             if (function == 0x06)
             {
@@ -377,14 +377,14 @@ namespace ModBusLIB
                 tx_buf[0] = slave_id;
                 tx_buf[1] = function;
 
-                tx_buf[2] = BitConverter.GetBytes(start)[1];
-                tx_buf[3] = BitConverter.GetBytes(start)[0];
+                tx_buf[2] = (byte)(start >> 8);
+                tx_buf[3] = (byte)start;
 
-                tx_buf[4] = BitConverter.GetBytes(udata[0])[1];
-                tx_buf[5] = BitConverter.GetBytes(udata[0])[0];
+                tx_buf[4] = (byte)(udata[0] >> 8);
+                tx_buf[5] = (byte)udata[0];
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
-                tx_buf[l - 2] = BitConverter.GetBytes(calculated_crc)[0];
-                tx_buf[l - 1] = BitConverter.GetBytes(calculated_crc)[1];
+                tx_buf[l - 2] = (byte)calculated_crc;
+                tx_buf[l - 1] = (byte)(calculated_crc >> 8);
 
             }
             if (function == 0x10)
@@ -393,23 +393,23 @@ namespace ModBusLIB
                 tx_buf[0] = slave_id;
                 tx_buf[1] = function;
 
-                tx_buf[2] = BitConverter.GetBytes(start)[1];
-                tx_buf[3] = BitConverter.GetBytes(start)[0];
+                tx_buf[2] = (byte)(start >> 8);
+                tx_buf[3] = (byte)start;
 
-                tx_buf[4] = BitConverter.GetBytes(count)[1];
-                tx_buf[5] = BitConverter.GetBytes(count)[0];
+                tx_buf[4] = (byte)(count >> 8);
+                tx_buf[5] = (byte)count;
                 tx_buf[6] = (byte)(count * 2);
                 l = 7;
                 for (int i = 0; i < count; i++)
                 {
-                    tx_buf[l] = BitConverter.GetBytes(udata[i])[1];
-                    tx_buf[l + 1] = BitConverter.GetBytes(udata[i])[0];
+                    tx_buf[l] = (byte)(udata[i] >> 8);
+                    tx_buf[l + 1] = (byte)udata[i];
                     l+=2;
                 }
                 l += 2;
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
-                tx_buf[l - 2] = BitConverter.GetBytes(calculated_crc)[0];
-                tx_buf[l - 1] = BitConverter.GetBytes(calculated_crc)[1];
+                tx_buf[l - 2] = (byte)calculated_crc;
+                tx_buf[l - 1] = (byte)(calculated_crc >> 8);
 
             }
             return l;
