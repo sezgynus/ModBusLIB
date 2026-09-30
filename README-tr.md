@@ -642,3 +642,7 @@ ModBusLIB.sln
 ## İlgili proje
 
 [TivaC-MODBUS](https://github.com/sezgynus/TivaC-MODBUS), Modbus RTU haberleşmesi için ModBusLIB kullanan bir Windows Forms uygulamasıdır.
+
+## Lisans
+
+Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.

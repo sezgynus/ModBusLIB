@@ -643,3 +643,7 @@ ModBusLIB.sln
 ## Related project
 
 [TivaC-MODBUS](https://github.com/sezgynus/TivaC-MODBUS) is a Windows Forms application that uses ModBusLIB for Modbus RTU communication.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
