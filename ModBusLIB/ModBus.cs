@@ -12,9 +12,10 @@ namespace ModBusLIB
     
     public class ModBus
     {   
-        public SerialPort Port;
-        public int crc_fail_count = 0;
-        public long t1_5, t3_5,char_time;
+        public SerialPort Port { get; private set; }
+        public int CrcFailCount { get; private set; }
+        private long t1_5;
+        private long t3_5;
         private Stopwatch microtimer = new Stopwatch();
         private byte[] rx_buf, tx_buf;
         private int rx_buf_index = 0;
@@ -43,7 +44,7 @@ namespace ModBusLIB
         public event EventHandler<ReadResponseArgs> WriteMultipleRegistersResponseHandler;
         public event EventHandler<RequestTimeoutArgs> RequestTimeoutHandler;
 
-        public class RequestTimeoutArgs : EventArgs
+        public sealed class RequestTimeoutArgs : EventArgs
         {
             public byte slave_id { get; set; }
             public byte function { get; set; }
@@ -76,7 +77,7 @@ namespace ModBusLIB
                 }
             }
         }
-        public class ReadResponseArgs : EventArgs
+        public sealed class ReadResponseArgs : EventArgs
         {
             public byte[] pdu { get; set; }
             public bool crc_ok { get; set; }
@@ -105,10 +106,6 @@ namespace ModBusLIB
                 for (int i = 0; i < response.registers.Length; i++)
                     response.registers[i] = (ushort)((response.pdu[3 + i * 2] << 8) | response.pdu[4 + i * 2]);
             }
-        }
-        public void wirtetest(string data)
-        {
-            Port.WriteLine(data);
         }
         public void Close()
         {
@@ -513,7 +510,7 @@ namespace ModBusLIB
                             else
                             {
                                 crc_okk = false;
-                                crc_fail_count++;
+                                CrcFailCount++;
                             }
 
                             if (!crc_okk)
