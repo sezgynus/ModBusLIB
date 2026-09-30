@@ -148,13 +148,16 @@ namespace ModBusLIB.Tests
             byte[] goodRead = WithCrc(bus, 0x11, 0x03, 0x04, 0x12, 0x34, 0xAB, 0xCD);
             Assert(Expected(bus, goodRead), "matching FC03 response accepted");
 
+            PreparePending(bus, 0x11, 0x03, readReq);
             byte[] wrongSlave = (byte[])goodRead.Clone();
             wrongSlave[0] = 0x12;
             Assert(!Expected(bus, wrongSlave), "wrong slave rejected");
 
+            PreparePending(bus, 0x11, 0x03, readReq);
             byte[] wrongCount = WithCrc(bus, 0x11, 0x03, 0x02, 0x12, 0x34);
             Assert(!Expected(bus, wrongCount), "wrong read byte count rejected");
 
+            PreparePending(bus, 0x11, 0x03, readReq);
             byte[] exception = WithCrc(bus, 0x11, 0x83, 0x02);
             Assert(exception.Length == 5 && Expected(bus, exception), "five-byte exception response accepted");
 
@@ -162,6 +165,7 @@ namespace ModBusLIB.Tests
             PreparePending(bus, 0x11, 0x06, writeReq);
             Assert(Expected(bus, writeReq), "matching FC06 echo accepted");
 
+            PreparePending(bus, 0x11, 0x06, writeReq);
             byte[] badEcho = WithCrc(bus, 0x11, 0x06, 0x00, 0x01, 0x00, 0x04);
             Assert(!Expected(bus, badEcho), "mismatched FC06 echo rejected");
         }
