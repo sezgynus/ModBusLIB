@@ -510,6 +510,40 @@ namespace ModBusLIB.Tests
                 captured is InvalidOperationException, "response callback exceptions are exposed through diagnostics");
         }
 
+
+        private static void TestResponseMetadataAndFrameIsolation()
+        {
+            var bus = new ModBus();
+            byte[] request = WithCrc(bus, 7, 3, 0x12, 0x34, 0, 2);
+            PreparePending(bus, 7, 3, request);
+
+            ModBus.ReadResponseArgs captured = null;
+            bus.ReadHoldingRegistersResponseHandler += (sender, e) => captured = e;
+            byte[] response = WithCrc(bus, 7, 3, 4, 0x11, 0x22, 0x33, 0x44);
+            Invoke(bus, "ProcessPacket", response);
+
+            Assert(captured != null && captured.Function == 3 && captured.StartAddress == 0x1234 &&
+                captured.RequestedQuantity == 2, "response exposes request function address and quantity metadata");
+
+            byte[] first = captured.Frame;
+            first[0] = 0xFF;
+            byte[] second = captured.Frame;
+            Assert(second[0] == 7, "response Frame getter returns a defensive snapshot");
+
+            response[1] = 0xFF;
+            Assert(captured.Frame[1] == 3, "response Frame is isolated from source packet mutations");
+
+            var writeBus = new ModBus();
+            byte[] writeRequest = WithCrc(writeBus, 9, 6, 0x00, 0x20, 0x12, 0x34);
+            PreparePending(writeBus, 9, 6, writeRequest);
+            ModBus.ReadResponseArgs writeCaptured = null;
+            writeBus.WriteSingleRegisterResponseHandler += (sender, e) => writeCaptured = e;
+            Invoke(writeBus, "ProcessPacket", (byte[])writeRequest.Clone());
+            Assert(writeCaptured != null && writeCaptured.Function == 6 &&
+                writeCaptured.StartAddress == 0x0020 && writeCaptured.RequestedQuantity == 1,
+                "single-write response metadata reports quantity one");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -527,6 +561,7 @@ namespace ModBusLIB.Tests
             TestTimeoutHandlerExceptionIsolation();
             TestRequestedCoilQuantityTrimsPaddingBits();
             TestCallbackExceptionDiagnostics();
+            TestResponseMetadataAndFrameIsolation();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);

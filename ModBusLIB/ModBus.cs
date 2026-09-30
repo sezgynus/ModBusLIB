@@ -120,9 +120,17 @@ namespace ModBusLIB
         }
         public sealed class ReadResponseArgs : EventArgs
         {
-            public byte[] Frame { get; set; }
+            private byte[] frame;
+            public byte[] Frame
+            {
+                get { return frame == null ? null : (byte[])frame.Clone(); }
+                set { frame = value == null ? null : (byte[])value.Clone(); }
+            }
             public bool CrcOk { get; set; }
             public byte SlaveId { get; set; }
+            public byte Function { get; set; }
+            public ushort StartAddress { get; set; }
+            public ushort RequestedQuantity { get; set; }
             public bool IsException { get; set; }
             public byte ExceptionCode { get; set; }
             public bool[] Bits { get; set; }
@@ -146,22 +154,23 @@ namespace ModBusLIB
 
         private static void DecodeReadData(ReadResponseArgs response, byte function, ushort requestedQuantity = 0)
         {
-            if (response.IsException || response.Frame == null || response.Frame.Length < 5)
+            byte[] frame = response.Frame;
+            if (response.IsException || frame == null || frame.Length < 5)
                 return;
 
-            int byteCount = response.Frame[2];
+            int byteCount = frame[2];
             if (function == 0x01 || function == 0x02)
             {
                 int bitCount = requestedQuantity > 0 ? requestedQuantity : byteCount * 8;
                 response.Bits = new bool[bitCount];
                 for (int i = 0; i < response.Bits.Length; i++)
-                    response.Bits[i] = (response.Frame[3 + (i / 8)] & (1 << (i % 8))) != 0;
+                    response.Bits[i] = (frame[3 + (i / 8)] & (1 << (i % 8))) != 0;
             }
             else if (function == 0x03 || function == 0x04)
             {
                 response.Registers = new ushort[byteCount / 2];
                 for (int i = 0; i < response.Registers.Length; i++)
-                    response.Registers[i] = (ushort)((response.Frame[3 + i * 2] << 8) | response.Frame[4 + i * 2]);
+                    response.Registers[i] = (ushort)((frame[3 + i * 2] << 8) | frame[4 + i * 2]);
             }
         }
         public void Close()
@@ -793,16 +802,25 @@ namespace ModBusLIB
             if (!IsExpectedResponse(packet))
                 return;
 
+            ushort startAddress = 0;
             ushort requestedQuantity = 0;
             lock (request_lock)
             {
                 if (request_pending && packet[0] == pending_slave_id &&
                     (packet[1] & 0x7F) == pending_function)
                 {
-                    if (pending_frame != null && pending_frame.Length >= 6 &&
-                        (pending_function == 0x01 || pending_function == 0x02))
+                    if (pending_frame != null && pending_frame.Length >= 6)
                     {
-                        requestedQuantity = (ushort)((pending_frame[4] << 8) | pending_frame[5]);
+                        startAddress = (ushort)((pending_frame[2] << 8) | pending_frame[3]);
+                        if (pending_function >= 0x01 && pending_function <= 0x04 ||
+                            pending_function == 0x0F || pending_function == 0x10)
+                        {
+                            requestedQuantity = (ushort)((pending_frame[4] << 8) | pending_frame[5]);
+                        }
+                        else if (pending_function == 0x05 || pending_function == 0x06)
+                        {
+                            requestedQuantity = 1;
+                        }
                     }
                     request_pending = false;
                     pending_frame = null;
@@ -815,6 +833,9 @@ namespace ModBusLIB
                 CrcOk = true,
                 Frame = packet,
                 SlaveId = packet[0],
+                Function = function,
+                StartAddress = startAddress,
+                RequestedQuantity = requestedQuantity,
                 IsException = (packet[1] & 0x80) != 0
             };
             if (response.IsException)
