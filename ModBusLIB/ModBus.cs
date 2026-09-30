@@ -205,18 +205,34 @@ namespace ModBusLIB
                 t1_5 = 16500000 / baudRate;
                 t3_5 = 38500000 / baudRate;
             }
-            Port = new SerialPort(portName, baudRate, parity, 8, stopBits);
+            SerialPort newPort = new SerialPort(portName, baudRate, parity, 8, stopBits);
+            try
+            {
+                newPort.DataReceived += serial_rx;
+                newPort.Open();
+                Port = newPort;
 
-            Port.DataReceived += new SerialDataReceivedEventHandler(serial_rx);
-            Port.Open();
+                rx_buf = new byte[4096];
+                tx_buf = new byte[8];
 
-            rx_buf = new byte[4096];
-            tx_buf = new byte[8];
-
-            us_timer_flag = true;
-            us_timer = new Thread(new ThreadStart(us_timer_task));
-            us_timer.Start();
-            microtimer.Start();
+                us_timer_flag = true;
+                us_timer = new Thread(new ThreadStart(us_timer_task));
+                us_timer.Start();
+                microtimer.Start();
+            }
+            catch
+            {
+                us_timer_flag = false;
+                newPort.DataReceived -= serial_rx;
+                if (newPort.IsOpen)
+                    newPort.Close();
+                newPort.Dispose();
+                if (ReferenceEquals(Port, newPort))
+                    Port = null;
+                us_timer = null;
+                microtimer.Reset();
+                throw;
+            }
         }
         public void ReadCoils(byte slave_id, ushort start, ushort count)//0x01
         {
