@@ -304,7 +304,7 @@ bus.ReadCoilsResponseHandler += (sender, e) =>
 bus.ReadCoils(1, 0, 8);
 ```
 
-Signature: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Quantity: 1–2000 coils. Coil data is decoded LSB-first into `ReadResponseArgs.Bits`. `Bits.Length` exactly matches the requested quantity; padding bits in the final RTU data byte are not exposed.
+Signature: `void ReadCoils(byte slaveId, ushort start, ushort count)`. Quantity: 1–2000 coils. Coil data is decoded LSB-first into `ReadResponseArgs.Bits`. `Bits.Length` exactly matches the requested quantity; padding bits in the final RTU data byte are not exposed.
 
 </details>
 
@@ -325,7 +325,7 @@ bus.ReadDiscreteInputsResponseHandler += (sender, e) =>
 bus.ReadDiscreteInputs(1, 0, 8);
 ```
 
-Signature: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`. Quantity: 1–2000 inputs. Decoded values are returned in `Bits`.
+Signature: `void ReadDiscreteInputs(byte slaveId, ushort start, ushort count)`. Quantity: 1–2000 inputs. Decoded values are returned in `Bits`.
 
 </details>
 
@@ -346,7 +346,7 @@ bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 bus.ReadHoldingRegisters(1, 0, 2);
 ```
 
-Signature: `void ReadHoldingRegisters(byte slave_id, ushort start, ushort count)`. Quantity: 1–125 registers. Register bytes are decoded big-endian into `ushort[] registers`.
+Signature: `void ReadHoldingRegisters(byte slaveId, ushort start, ushort count)`. Quantity: 1–125 registers. Register bytes are decoded big-endian into `ushort[] Registers`.
 
 </details>
 
@@ -364,7 +364,7 @@ bus.ReadInputRegistersResponseHandler += (sender, e) =>
 bus.ReadInputRegisters(1, 0, 1);
 ```
 
-Signature: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`. Quantity: 1–125 registers. Decoded values are returned in `Registers`.
+Signature: `void ReadInputRegisters(byte slaveId, ushort start, ushort count)`. Quantity: 1–125 registers. Decoded values are returned in `Registers`.
 
 </details>
 
@@ -384,7 +384,7 @@ bus.WriteSingleCoilResponseHandler += (sender, e) =>
 bus.WriteSingleCoil(1, 5, true);
 ```
 
-Signature: `void WriteSingleCoil(byte slave_id, ushort adress, bool coil_value)`. `true` is serialized as `FF 00`; `false` as `00 00`. A normal FC05 response must echo the request fields and is validated against the outstanding request.
+Signature: `void WriteSingleCoil(byte slaveId, ushort address, bool coilValue)`. `true` is serialized as `FF 00`; `false` as `00 00`. A normal FC05 response must echo the request fields and is validated against the outstanding request.
 
 </details>
 
@@ -403,7 +403,7 @@ int frameLength = bus.WriteSingleRegister(1, 10, 1234);
 Console.WriteLine($"TX frame length: {frameLength}");
 ```
 
-Signature: `int WriteSingleRegister(byte slave_id, ushort adress, ushort udata)`. A normal FC06 response is validated as an echo of the request. The return value is the serialized request-frame length.
+Signature: `int WriteSingleRegister(byte slaveId, ushort address, ushort value)`. A normal FC06 response is validated as an echo of the request. The return value is the serialized request-frame length.
 
 </details>
 
@@ -423,7 +423,7 @@ byte[] coilData = { 0b00000101 };
 int frameLength = bus.WriteMultipleCoils(1, 0, 8, coilData);
 ```
 
-Signature: `int WriteMultipleCoils(byte slave_id, ushort start, ushort count, byte[] pdata)`. Quantity: 1–1968 coils. `pdata` must contain at least `ceil(count / 8)` bytes. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
+Signature: `int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)`. Quantity: 1–1968 coils. `pdata` must contain at least `ceil(count / 8)` bytes. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
 
 </details>
 
@@ -443,7 +443,7 @@ int frameLength = bus.WriteMultipleRegisters(
     1, 10, (ushort)values.Length, values);
 ```
 
-Signature: `int WriteMultipleRegisters(byte slave_id, ushort start, ushort count, ushort[] udata)`. Quantity: 1–123 registers. `udata` must contain at least `count` elements. Values are serialized high byte first. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
+Signature: `int WriteMultipleRegisters(byte slaveId, ushort start, ushort count, ushort[] data)`. Quantity: 1–123 registers. `udata` must contain at least `count` elements. Values are serialized high byte first. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
 
 </details>
 
@@ -613,6 +613,7 @@ Response and timeout event handlers are therefore not guaranteed to execute on a
 - write-response echo validation
 - register and coil decoding
 - Modbus quantity and address limits
+- transport initialization/close/dispose failure cleanup
 
 GitHub Actions builds the .NET Framework 4.8 library and test executable on Windows and runs the regression suite on pushes to `master`.
 

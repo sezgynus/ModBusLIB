@@ -303,7 +303,7 @@ bus.ReadCoilsResponseHandler += (sender, e) =>
 bus.ReadCoils(1, 0, 8);
 ```
 
-İmza: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Adet: 1–2000 coil. Coil verisi LSB-first olarak `ReadResponseArgs.Bits` dizisine çözülür. `Bits.Length` tam olarak istenen adede eşittir; son RTU veri byte'ındaki padding bitleri dışarı verilmez.
+İmza: `void ReadCoils(byte slaveId, ushort start, ushort count)`. Adet: 1–2000 coil. Coil verisi LSB-first olarak `ReadResponseArgs.Bits` dizisine çözülür. `Bits.Length` tam olarak istenen adede eşittir; son RTU veri byte'ındaki padding bitleri dışarı verilmez.
 
 </details>
 
@@ -324,7 +324,7 @@ bus.ReadDiscreteInputsResponseHandler += (sender, e) =>
 bus.ReadDiscreteInputs(1, 0, 8);
 ```
 
-İmza: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`. Adet: 1–2000 input. Çözülmüş değerler `Bits` içinde döner.
+İmza: `void ReadDiscreteInputs(byte slaveId, ushort start, ushort count)`. Adet: 1–2000 input. Çözülmüş değerler `Bits` içinde döner.
 
 </details>
 
@@ -345,7 +345,7 @@ bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 bus.ReadHoldingRegisters(1, 0, 2);
 ```
 
-İmza: `void ReadHoldingRegisters(byte slave_id, ushort start, ushort count)`. Adet: 1–125 register. Register byte'ları big-endian olarak `ushort[] registers` dizisine çözülür.
+İmza: `void ReadHoldingRegisters(byte slaveId, ushort start, ushort count)`. Adet: 1–125 register. Register byte'ları big-endian olarak `ushort[] Registers` dizisine çözülür.
 
 </details>
 
@@ -363,7 +363,7 @@ bus.ReadInputRegistersResponseHandler += (sender, e) =>
 bus.ReadInputRegisters(1, 0, 1);
 ```
 
-İmza: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`. Adet: 1–125 register. Çözülmüş değerler `Registers` içinde döner.
+İmza: `void ReadInputRegisters(byte slaveId, ushort start, ushort count)`. Adet: 1–125 register. Çözülmüş değerler `Registers` içinde döner.
 
 </details>
 
@@ -383,7 +383,7 @@ bus.WriteSingleCoilResponseHandler += (sender, e) =>
 bus.WriteSingleCoil(1, 5, true);
 ```
 
-İmza: `void WriteSingleCoil(byte slave_id, ushort adress, bool coil_value)`. `true`, `FF 00`; `false`, `00 00` olarak serileştirilir. Normal FC05 cevabı request alanlarını echo eder ve aktif request ile karşılaştırılarak doğrulanır.
+İmza: `void WriteSingleCoil(byte slaveId, ushort address, bool coilValue)`. `true`, `FF 00`; `false`, `00 00` olarak serileştirilir. Normal FC05 cevabı request alanlarını echo eder ve aktif request ile karşılaştırılarak doğrulanır.
 
 </details>
 
@@ -402,7 +402,7 @@ int frameLength = bus.WriteSingleRegister(1, 10, 1234);
 Console.WriteLine($"TX frame length: {frameLength}");
 ```
 
-İmza: `int WriteSingleRegister(byte slave_id, ushort adress, ushort udata)`. Normal FC06 cevabı request'in echo'su olarak doğrulanır. Dönüş değeri serileştirilmiş request frame uzunluğudur.
+İmza: `int WriteSingleRegister(byte slaveId, ushort address, ushort value)`. Normal FC06 cevabı request'in echo'su olarak doğrulanır. Dönüş değeri serileştirilmiş request frame uzunluğudur.
 
 </details>
 
@@ -422,7 +422,7 @@ byte[] coilData = { 0b00000101 };
 int frameLength = bus.WriteMultipleCoils(1, 0, 8, coilData);
 ```
 
-İmza: `int WriteMultipleCoils(byte slave_id, ushort start, ushort count, byte[] pdata)`. Adet: 1–1968 coil. `pdata` en az `ceil(count / 8)` byte içermelidir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
+İmza: `int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)`. Adet: 1–1968 coil. `pdata` en az `ceil(count / 8)` byte içermelidir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
 
 </details>
 
@@ -442,7 +442,7 @@ int frameLength = bus.WriteMultipleRegisters(
     1, 10, (ushort)values.Length, values);
 ```
 
-İmza: `int WriteMultipleRegisters(byte slave_id, ushort start, ushort count, ushort[] udata)`. Adet: 1–123 register. `udata` en az `count` eleman içermelidir. Değerler high byte önce olacak şekilde serileştirilir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
+İmza: `int WriteMultipleRegisters(byte slaveId, ushort start, ushort count, ushort[] data)`. Adet: 1–123 register. `udata` en az `count` eleman içermelidir. Değerler high byte önce olacak şekilde serileştirilir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
 
 </details>
 
@@ -518,7 +518,7 @@ bus.RequestTimeoutHandler += (sender, e) =>
 </details>
 
 <details>
-<summary><strong>CallbackExceptionHandler</strong></summary>
+<summary><strong>CallbackExceptionHandler ve CallbackExceptionArgs</strong></summary>
 
 Uygulamanın response ve timeout callback'leri Modbus worker'dan izole edilir. Bir callback exception atarsa worker çalışmaya devam eder ve hata `CallbackExceptionHandler` üzerinden bildirilir:
 
@@ -612,6 +612,7 @@ Bu nedenle response ve timeout event handler'larının UI thread üzerinde çal�
 - write-response echo doğrulaması
 - register ve coil çözümleme
 - Modbus adet ve adres sınırları
+- transport initialize/close/dispose hata durumlarında cleanup
 
 GitHub Actions, Windows üzerinde .NET Framework 4.8 kütüphanesini ve test executable'ını derler ve `master` branch'ine yapılan push'larda regression testlerini çalıştırır.
 
