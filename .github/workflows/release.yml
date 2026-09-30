@@ -41,14 +41,14 @@ jobs:
           "sha=$masterSha" >> $env:GITHUB_OUTPUT
       - name: Checkout tested master commit
         if: steps.verify.outputs.release == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.verify.outputs.sha }}
           fetch-depth: 0
           fetch-tags: true
       - name: Set up MSBuild
         if: steps.verify.outputs.release == 'true'
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
       - name: Determine next version
         if: steps.verify.outputs.release == 'true'
         id: version

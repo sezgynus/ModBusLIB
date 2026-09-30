@@ -14,8 +14,8 @@ jobs:
   test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/setup-msbuild@v2
+      - uses: actions/checkout@v7
+      - uses: microsoft/setup-msbuild@v3
       - name: Build library
         run: msbuild ModBusLIB\ModBusLIB.csproj /p:Configuration=Release
       - name: Build regression tests
