@@ -430,17 +430,20 @@ namespace ModBusLIB
 
         private void WaitForNextWorkerIteration()
         {
-            long remainingUs;
+            long remainingUs = -1;
             lock (rx_lock)
             {
-                if (!new_packet)
+                if (new_packet)
                 {
-                    Thread.Sleep(1);
-                    return;
+                    long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+                    remainingUs = t3_5 - (nowUs - last_rx_us);
                 }
+            }
 
-                long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
-                remainingUs = t3_5 - (nowUs - last_rx_us);
+            if (remainingUs < 0)
+            {
+                Thread.Sleep(1);
+                return;
             }
 
             if (remainingUs > 2000)
