@@ -457,7 +457,9 @@ namespace ModBusLIB.Tests
             bus.RequestTimeoutHandler += (sender, e) => { called++; };
 
             var args = new ModBus.RequestTimeoutArgs { SlaveId = 1, Function = 3, Retries = 0 };
-            Invoke(bus, "SafeInvoke", bus.RequestTimeoutHandler, args);
+            FieldInfo eventField = typeof(ModBus).GetField("RequestTimeoutHandler", BindingFlags.Instance | BindingFlags.NonPublic);
+            var handler = (EventHandler<ModBus.RequestTimeoutArgs>)eventField.GetValue(bus);
+            Invoke(bus, "SafeInvoke", handler, args);
 
             Assert(called == 1, "timeout callback failure does not block later subscribers");
         }
