@@ -131,6 +131,11 @@ namespace ModBusLIB
         }
         public void Initialize(string portName, int baudRate=115200, Parity parity=Parity.Even)
         {
+            if (string.IsNullOrWhiteSpace(portName))
+                throw new ArgumentException("A serial port name is required.", nameof(portName));
+            if (baudRate <= 0)
+                throw new ArgumentOutOfRangeException(nameof(baudRate));
+
             StopBits stopBits;
             if (parity == Parity.None) stopBits = StopBits.Two;
             else stopBits = StopBits.One;
@@ -158,26 +163,31 @@ namespace ModBusLIB
         }
         public void ReadCoils(byte slave_id, ushort start, ushort count)//0x01
         {
+            ValidateRequest(slave_id, start, count, 1, 2000);
             modbus_read_serializer(0x01, slave_id, start, count);
             if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)//0x02
         {
+            ValidateRequest(slave_id, start, count, 1, 2000);
             modbus_read_serializer(0x02, slave_id, start, count);
             if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void ReadHoldingRegisters(byte slave_id, ushort start, ushort count)//0x03
         {
+            ValidateRequest(slave_id, start, count, 1, 125);
             modbus_read_serializer(0x03, slave_id, start, count);
             if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void ReadInputRegisters(byte slave_id, ushort start, ushort count)//0x04
         {
+            ValidateRequest(slave_id, start, count, 1, 125);
             modbus_read_serializer(0x04, slave_id, start, count);
             if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void WriteSingleCoil(byte slave_id, ushort adress, bool coil_value)//0x05
         {
+            ValidateSlaveId(slave_id);
             byte[] value = new byte[2];
             int packet_size;
             if (coil_value)
@@ -195,6 +205,10 @@ namespace ModBusLIB
         }
         public int WriteMultipleCoils(byte slave_id, ushort start, ushort count,byte[] pdata)//0x15
         {
+            ValidateRequest(slave_id, start, count, 1, 1968);
+            int requiredBytes = (count + 7) / 8;
+            if (pdata == null || pdata.Length < requiredBytes)
+                throw new ArgumentException("Packed coil data is shorter than the requested quantity.", nameof(pdata));
             int packet_size;
             packet_size=modbus_write_serializer(0x0F, slave_id, start, count, pdata);
             if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, packet_size);
@@ -202,6 +216,7 @@ namespace ModBusLIB
         }
         public int WriteSingleRegister(byte slave_id, ushort adress, ushort udata)//0x06
         {
+            ValidateSlaveId(slave_id);
             int packet_size;
             ushort[] udat = { udata };
             packet_size = modbus_write_serializer(0x06, slave_id, adress, 0, null ,udat);
@@ -210,10 +225,28 @@ namespace ModBusLIB
         }
         public int WriteMultipleRegisters(byte slave_id, ushort start, ushort count, ushort[] udata)//0x16
         {
+            ValidateRequest(slave_id, start, count, 1, 123);
+            if (udata == null || udata.Length < count)
+                throw new ArgumentException("Register data is shorter than the requested quantity.", nameof(udata));
             int packet_size;
             packet_size = modbus_write_serializer(0x10, slave_id, start, count, null, udata);
             SendRequest(slave_id, 0x10, packet_size);
             return packet_size;
+        }
+
+        private static void ValidateSlaveId(byte slaveId)
+        {
+            if (slaveId < 1 || slaveId > 247)
+                throw new ArgumentOutOfRangeException(nameof(slaveId), "Slave ID must be between 1 and 247.");
+        }
+
+        private static void ValidateRequest(byte slaveId, ushort start, ushort count, int minCount, int maxCount)
+        {
+            ValidateSlaveId(slaveId);
+            if (count < minCount || count > maxCount)
+                throw new ArgumentOutOfRangeException(nameof(count));
+            if ((uint)start + count > 65536u)
+                throw new ArgumentOutOfRangeException(nameof(count), "Address range exceeds the Modbus address space.");
         }
 
         private ushort CRC16_MODBUS(byte[] buf, int len)
