@@ -243,7 +243,8 @@ int crcErrors = bus.CrcFailCount;
 
 | Member | Type | Purpose |
 | --- | --- | --- |
-| `Port` | `SerialPort` | Active serial-port instance. The setter is private. |
+| `IsOpen` | `bool` | Whether the internal serial transport is open. |
+| `PortName` | `string` | Active serial port name, or `null` when closed. |
 | `CrcFailCount` | `int` | Number of received frames rejected because their CRC was invalid. |
 | `ResponseTimeoutMs` | `int` | Time allowed for a request attempt before retry/timeout processing. Default: 1000 ms. |
 | `MaxRetries` | `int` | Number of retransmissions after the initial attempt. Default: 0. |
@@ -266,7 +267,7 @@ Signature:
 void Initialize(string portName, int baudRate = 115200, Parity parity = Parity.Even)
 ```
 
-The library opens the port during this call. It uses 8 data bits; Even/Odd parity uses one stop bit and `Parity.None` uses two stop bits.
+The library opens the port during this call. The underlying `SerialPort` is intentionally kept internal; use `IsOpen` and `PortName` to inspect connection state. It uses 8 data bits; Even/Odd parity uses one stop bit and `Parity.None` uses two stop bits.
 
 </details>
 
