@@ -519,6 +519,22 @@ bus.RequestTimeoutHandler += (sender, e) =>
 </details>
 
 <details>
+<summary><strong>CallbackExceptionHandler and CallbackExceptionArgs</strong></summary>
+
+Response and timeout callbacks are isolated from the Modbus worker. If application callback code throws, the worker continues running and the failure is reported through `CallbackExceptionHandler`:
+
+```csharp
+bus.CallbackExceptionHandler += (sender, e) =>
+{
+    Console.WriteLine($"Callback {e.CallbackName} failed: {e.Exception}");
+};
+```
+
+`CallbackExceptionArgs` exposes `CallbackName` and `Exception`. Exceptions thrown by a diagnostic callback are also contained so they cannot terminate the worker thread.
+
+</details>
+
+<details>
 <summary><strong>One outstanding request rule</strong></summary>
 
 
