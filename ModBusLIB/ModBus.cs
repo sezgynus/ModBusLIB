@@ -213,7 +213,10 @@ namespace ModBusLIB
                 tx_buf = new byte[8];
 
                 us_timer_flag = true;
-                us_timer = new Thread(new ThreadStart(us_timer_task));
+                us_timer = new Thread(new ThreadStart(us_timer_task))
+                {
+                    IsBackground = true
+                };
                 us_timer.Start();
                 microtimer.Start();
             }
