@@ -362,6 +362,76 @@ namespace ModBusLIB.Tests
             Assert(bus.CrcFailCount == 1, "CRC-invalid packet increments failure count");
         }
 
+
+        private static void TestTimeoutAndExceptionLifecycle()
+        {
+            var timeoutBus = new ModBus();
+            timeoutBus.ResponseTimeoutMs = 1;
+            byte[] request = WithCrc(timeoutBus, 0x41, 0x03, 0, 0, 0, 1);
+            PreparePending(timeoutBus, 0x41, 0x03, request);
+            Set(timeoutBus, "pending_since_ms", -1000L);
+            int timeoutEvents = 0;
+            byte timeoutSlave = 0;
+            byte timeoutFunction = 0;
+            int timeoutRetries = -1;
+            timeoutBus.RequestTimeoutHandler += (sender, e) =>
+            {
+                timeoutEvents++;
+                timeoutSlave = e.SlaveId;
+                timeoutFunction = e.Function;
+                timeoutRetries = e.Retries;
+            };
+            Invoke(timeoutBus, "CheckRequestTimeout");
+            Assert(timeoutEvents == 1 && timeoutSlave == 0x41 && timeoutFunction == 0x03 && timeoutRetries == 0,
+                "expired request raises timeout event with request metadata");
+            Assert(!Get<bool>(timeoutBus, "request_pending") && Get<byte[]>(timeoutBus, "pending_frame") == null,
+                "timeout clears pending request state");
+
+            var retryBus = new ModBus();
+            retryBus.ResponseTimeoutMs = 1;
+            retryBus.MaxRetries = 1;
+            PreparePending(retryBus, 0x42, 0x03, WithCrc(retryBus, 0x42, 0x03, 0, 0, 0, 1));
+            Set(retryBus, "pending_since_ms", -1000L);
+            int retryTimeouts = 0;
+            int reportedRetries = -1;
+            retryBus.RequestTimeoutHandler += (sender, e) =>
+            {
+                retryTimeouts++;
+                reportedRetries = e.Retries;
+            };
+            Invoke(retryBus, "CheckRequestTimeout");
+            Assert(Get<int>(retryBus, "pending_retry_count") == 1 && Get<bool>(retryBus, "request_pending"),
+                "retry attempt increments count and keeps request pending");
+            Set(retryBus, "pending_since_ms", -1000L);
+            Invoke(retryBus, "CheckRequestTimeout");
+            Assert(retryTimeouts == 1 && reportedRetries == 1 && !Get<bool>(retryBus, "request_pending"),
+                "request times out after configured retry count");
+
+            var exceptionBus = new ModBus();
+            byte[] exceptionRequest = WithCrc(exceptionBus, 0x51, 0x03, 0, 0, 0, 1);
+            PreparePending(exceptionBus, 0x51, 0x03, exceptionRequest);
+            int exceptionEvents = 0;
+            byte exceptionCode = 0;
+            exceptionBus.ReadHoldingRegistersResponseHandler += (sender, e) =>
+            {
+                exceptionEvents++;
+                if (e.IsException)
+                    exceptionCode = e.ExceptionCode;
+            };
+            Invoke(exceptionBus, "ProcessPacket", WithCrc(exceptionBus, 0x51, 0x83, 0x02));
+            Assert(exceptionEvents == 1 && exceptionCode == 0x02,
+                "Modbus exception packet dispatches exception metadata");
+            Assert(!Get<bool>(exceptionBus, "request_pending"), "exception response completes pending request");
+
+            var malformedBus = new ModBus();
+            PreparePending(malformedBus, 0x61, 0x03, WithCrc(malformedBus, 0x61, 0x03, 0, 0, 0, 1));
+            int malformedEvents = 0;
+            malformedBus.ReadHoldingRegistersResponseHandler += (sender, e) => malformedEvents++;
+            Invoke(malformedBus, "ProcessPacket", new byte[] { 0x61, 0x03, 0x00, 0x00 });
+            Assert(malformedEvents == 0 && Get<bool>(malformedBus, "request_pending"),
+                "malformed short packet is ignored without completing request");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -374,6 +444,7 @@ namespace ModBusLIB.Tests
             TestReinitializeRejected();
             TestTimeoutConfigurationValidation();
             TestPacketDispatch();
+            TestTimeoutAndExceptionLifecycle();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
