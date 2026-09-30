@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - modbus-hardening-refactor
   pull_request:
     paths:
       - 'ModBusLIB/**'
