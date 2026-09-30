@@ -152,8 +152,8 @@ namespace ModBusLIB.Tests
         {
             var registerResponse = new ModBus.ReadResponseArgs
             {
-                pdu = new byte[] { 1, 3, 4, 0x12, 0x34, 0xAB, 0xCD, 0, 0 },
-                ex_resp = false
+                Frame = new byte[] { 1, 3, 4, 0x12, 0x34, 0xAB, 0xCD, 0, 0 },
+                IsException = false
             };
             InvokeStatic("DecodeReadData", registerResponse, (byte)0x03, (ushort)0);
             Assert(registerResponse.Registers.Length == 2, "register response decoded count");
@@ -162,8 +162,8 @@ namespace ModBusLIB.Tests
 
             var coilResponse = new ModBus.ReadResponseArgs
             {
-                pdu = new byte[] { 1, 1, 1, 0x05, 0, 0 },
-                ex_resp = false
+                Frame = new byte[] { 1, 1, 1, 0x05, 0, 0 },
+                IsException = false
             };
             InvokeStatic("DecodeReadData", coilResponse, (byte)0x01, (ushort)0);
             Assert(coilResponse.Bits[0] && !coilResponse.Bits[1] && coilResponse.Bits[2],
@@ -287,8 +287,8 @@ namespace ModBusLIB.Tests
 
             var discrete = new ModBus.ReadResponseArgs
             {
-                pdu = new byte[] { 1, 2, 1, 0xA5, 0, 0 },
-                ex_resp = false
+                Frame = new byte[] { 1, 2, 1, 0xA5, 0, 0 },
+                IsException = false
             };
             InvokeStatic("DecodeReadData", discrete, (byte)0x02, (ushort)0);
             Assert(discrete.Bits.Length == 8 && discrete.Bits[0] && !discrete.Bits[1] && discrete.Bits[2],
@@ -296,8 +296,8 @@ namespace ModBusLIB.Tests
 
             var inputRegs = new ModBus.ReadResponseArgs
             {
-                pdu = new byte[] { 1, 4, 2, 0xBE, 0xEF, 0, 0 },
-                ex_resp = false
+                Frame = new byte[] { 1, 4, 2, 0xBE, 0xEF, 0, 0 },
+                IsException = false
             };
             InvokeStatic("DecodeReadData", inputRegs, (byte)0x04, (ushort)0);
             Assert(inputRegs.Registers.Length == 1 && inputRegs.Registers[0] == 0xBEEF,
@@ -305,8 +305,8 @@ namespace ModBusLIB.Tests
 
             var exceptionData = new ModBus.ReadResponseArgs
             {
-                pdu = new byte[] { 1, 0x83, 2, 0, 0 },
-                ex_resp = true
+                Frame = new byte[] { 1, 0x83, 2, 0, 0 },
+                IsException = true
             };
             InvokeStatic("DecodeReadData", exceptionData, (byte)0x03, (ushort)0);
             Assert(exceptionData.Registers == null && exceptionData.Bits == null,
