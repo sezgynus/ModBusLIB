@@ -422,7 +422,7 @@ byte[] coilData = { 0b00000101 };
 int frameLength = bus.WriteMultipleCoils(1, 0, 8, coilData);
 ```
 
-İmza: `int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)`. Adet: 1–1968 coil. `pdata` en az `ceil(count / 8)` byte içermelidir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
+İmza: `int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)`. Adet: 1–1968 coil. `data` en az `ceil(count / 8)` byte içermelidir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
 
 </details>
 
@@ -442,7 +442,7 @@ int frameLength = bus.WriteMultipleRegisters(
     1, 10, (ushort)values.Length, values);
 ```
 
-İmza: `int WriteMultipleRegisters(byte slaveId, ushort start, ushort count, ushort[] data)`. Adet: 1–123 register. `udata` en az `count` eleman içermelidir. Değerler high byte önce olacak şekilde serileştirilir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
+İmza: `int WriteMultipleRegisters(byte slaveId, ushort start, ushort count, ushort[] data)`. Adet: 1–123 register. `data` en az `count` eleman içermelidir. Değerler high byte önce olacak şekilde serileştirilir. Cevaptaki başlangıç adresi ve adet request ile karşılaştırılır. Metot serileştirilmiş request frame uzunluğunu döndürür.
 
 </details>
 
@@ -465,12 +465,12 @@ bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
     }
 
     byte[] rawFrame = e.Frame;
-    ushort[] registers = e.Registers; // FC03 / FC04
+    ushort[] decodedRegisters = e.Registers; // FC03 / FC04
     bool[] bits = e.Bits;             // FC01 / FC02
 };
 ```
 
-Tarihsel isminden farklı olarak `Frame`, slave adresi ve CRC dahil alınan tam RTU frame'ini içerir. Her `Frame` erişimi korumalı bir kopya döndürür; kullanıcı tarafındaki değişiklikler kütüphanenin tuttuğu response snapshot'ını değiştiremez. `Function`, `StartAddress` ve `RequestedQuantity` cevabı tamamlanan request ile ilişkilendirir. CRC'si geçersiz frame'ler event oluşturulmadan atıldığı için uygulamaya iletilen normal cevaplarda `crc_ok == true` olur. `Bits` yalnız başarılı FC01/FC02 okumalarında, `Registers` ise yalnız başarılı FC03/FC04 okumalarında doldurulur.
+Tarihsel isminden farklı olarak `Frame`, slave adresi ve CRC dahil alınan tam RTU frame'ini içerir. Her `Frame` erişimi korumalı bir kopya döndürür; kullanıcı tarafındaki değişiklikler kütüphanenin tuttuğu response snapshot'ını değiştiremez. `Function`, `StartAddress` ve `RequestedQuantity` cevabı tamamlanan request ile ilişkilendirir. CRC'si geçersiz frame'ler event oluşturulmadan atıldığı için uygulamaya iletilen normal cevaplarda `CrcOk == true` olur. `Bits` yalnız başarılı FC01/FC02 okumalarında, `Registers` ise yalnız başarılı FC03/FC04 okumalarında doldurulur.
 
 </details>
 

@@ -423,7 +423,7 @@ byte[] coilData = { 0b00000101 };
 int frameLength = bus.WriteMultipleCoils(1, 0, 8, coilData);
 ```
 
-Signature: `int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)`. Quantity: 1–1968 coils. `pdata` must contain at least `ceil(count / 8)` bytes. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
+Signature: `int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)`. Quantity: 1–1968 coils. `data` must contain at least `ceil(count / 8)` bytes. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
 
 </details>
 
@@ -443,7 +443,7 @@ int frameLength = bus.WriteMultipleRegisters(
     1, 10, (ushort)values.Length, values);
 ```
 
-Signature: `int WriteMultipleRegisters(byte slaveId, ushort start, ushort count, ushort[] data)`. Quantity: 1–123 registers. `udata` must contain at least `count` elements. Values are serialized high byte first. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
+Signature: `int WriteMultipleRegisters(byte slaveId, ushort start, ushort count, ushort[] data)`. Quantity: 1–123 registers. `data` must contain at least `count` elements. Values are serialized high byte first. The response's start address and quantity are checked against the request. The method returns the serialized request-frame length.
 
 </details>
 
@@ -466,12 +466,12 @@ bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
     }
 
     byte[] rawFrame = e.Frame;
-    ushort[] registers = e.Registers; // FC03 / FC04
+    ushort[] decodedRegisters = e.Registers; // FC03 / FC04
     bool[] bits = e.Bits;             // FC01 / FC02
 };
 ```
 
-Despite its historical name, `Frame` contains the complete received RTU frame, including slave address and CRC. Each `Frame` access returns a defensive copy, so consumer mutations cannot alter the response snapshot held by the library. `Function`, `StartAddress`, and `RequestedQuantity` correlate the response with the completed request. Invalid-CRC frames are discarded before an event is raised, so normally dispatched responses have `crc_ok == true`. `Bits` is populated only for successful FC01/FC02 reads, and `Registers` only for successful FC03/FC04 reads.
+Despite its historical name, `Frame` contains the complete received RTU frame, including slave address and CRC. Each `Frame` access returns a defensive copy, so consumer mutations cannot alter the response snapshot held by the library. `Function`, `StartAddress`, and `RequestedQuantity` correlate the response with the completed request. Invalid-CRC frames are discarded before an event is raised, so normally dispatched responses have `CrcOk == true`. `Bits` is populated only for successful FC01/FC02 reads, and `Registers` only for successful FC03/FC04 reads.
 
 </details>
 
