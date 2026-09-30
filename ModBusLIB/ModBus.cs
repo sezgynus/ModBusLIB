@@ -420,6 +420,12 @@ namespace ModBusLIB
                                 crc_fail_count++;
                             }
 
+                            if (!crc_okk)
+                            {
+                                new_packet = false;
+                                return;
+                            }
+
                             if (crc_okk)
                             {
                                 lock (request_lock)
