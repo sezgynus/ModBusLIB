@@ -546,187 +546,99 @@ namespace ModBusLIB
 
         private void modbus_timer_Tick()
         {
+            byte[] packet = null;
+
             lock (rx_lock)
             {
-            if (new_packet)
-            {
+                if (!new_packet)
+                    return;
+
                 long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
-                if ((nowUs - last_rx_us) >= t3_5)
+                if ((nowUs - last_rx_us) < t3_5)
+                    return;
+
+                if (rx_buf_index < 5)
                 {
-                    if (rx_buf_index >= 5)
-                    {
-                        byte[] packet = new byte[rx_buf_index];
-                        for (int i = 0; i < packet.Length; i++)
-                        {
-                            packet[i] = rx_buf[i];
-                        }
-                        rx_buf_index = 0;
-                        new_packet = false;
-                        if (packet.Length > 0)
-                        {
-                            bool crc_okk = false;
-                            ushort calculated_crc = CRC16_MODBUS(packet, (packet.Length - 2));
-                            byte[] calc_crc = BitConverter.GetBytes(calculated_crc);
-                            byte[] in_crc = new byte[2];
-                            in_crc[0] = packet[packet.Length - 2];
-                            in_crc[1] = packet[packet.Length - 1];
-                            if ((calc_crc[0] == in_crc[0]) &(calc_crc[1] == in_crc[1]))
-                            {
-                                crc_okk = true;
-                            }
-                            else
-                            {
-                                crc_okk = false;
-                                CrcFailCount++;
-                            }
+                    rx_buf_index = 0;
+                    new_packet = false;
+                    return;
+                }
 
-                            if (!crc_okk)
-                            {
-                                new_packet = false;
-                                return;
-                            }
+                packet = new byte[rx_buf_index];
+                Array.Copy(rx_buf, packet, rx_buf_index);
+                rx_buf_index = 0;
+                new_packet = false;
+            }
 
-                            if (!IsExpectedResponse(packet))
-                            {
-                                new_packet = false;
-                                return;
-                            }
+            ProcessPacket(packet);
+        }
 
-                            if (crc_okk)
-                            {
-                                lock (request_lock)
-                                {
-                                    if (request_pending && packet[0] == pending_slave_id && (packet[1] & 0x7F) == pending_function)
-                                        request_pending = false;
-                                }
-                            }
+        private void ProcessPacket(byte[] packet)
+        {
+            if (packet == null || packet.Length < 5)
+                return;
 
-                            if ((packet[1] & 0x7F) == 0x01)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                DecodeReadData(e, 0x01);
-                                ReadCoilsResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x02)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                DecodeReadData(e, 0x02);
-                                ReadDiscreteInputsResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x03)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                DecodeReadData(e, 0x03);
-                                ReadHoldingRegistersResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x04)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                DecodeReadData(e, 0x04);
-                                ReadInputRegistersResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x05)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                WriteSingleCoilResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x0F)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                WriteMultipleCoilsResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x06)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                WriteSingleRegisterResponseHandler?.Invoke(this, e);
-                            }
-                            else if ((packet[1] & 0x7F) == 0x10)
-                            {
-                                ReadResponseArgs e = new ReadResponseArgs();
-                                e.crc_ok = crc_okk;
-                                e.pdu = packet;
-                                e.slave_id = packet[0];
-                                if ((packet[1] & 0x80) > 0)
-                                {
-                                    e.ex_code = packet[2];
-                                    e.ex_resp = true;
-                                }
-                                else e.ex_resp = false;
-                                WriteMultipleRegistersResponseHandler?.Invoke(this, e);
-                            }
-                            new_packet = false;
-                        }
-                    }
-                    else
-                    {
-                        rx_buf_index = 0;
-                        new_packet = false;
-                    }
+            ushort calculatedCrc = CRC16_MODBUS(packet, packet.Length - 2);
+            byte crcLow = (byte)(calculatedCrc & 0xFF);
+            byte crcHigh = (byte)(calculatedCrc >> 8);
+            if (packet[packet.Length - 2] != crcLow || packet[packet.Length - 1] != crcHigh)
+            {
+                CrcFailCount++;
+                return;
+            }
+
+            if (!IsExpectedResponse(packet))
+                return;
+
+            lock (request_lock)
+            {
+                if (request_pending && packet[0] == pending_slave_id &&
+                    (packet[1] & 0x7F) == pending_function)
+                {
+                    request_pending = false;
+                    pending_frame = null;
                 }
             }
+
+            byte function = (byte)(packet[1] & 0x7F);
+            var response = new ReadResponseArgs
+            {
+                crc_ok = true,
+                pdu = packet,
+                slave_id = packet[0],
+                ex_resp = (packet[1] & 0x80) != 0
+            };
+            if (response.ex_resp)
+                response.ex_code = packet[2];
+            else
+                DecodeReadData(response, function);
+
+            switch (function)
+            {
+                case 0x01:
+                    ReadCoilsResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x02:
+                    ReadDiscreteInputsResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x03:
+                    ReadHoldingRegistersResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x04:
+                    ReadInputRegistersResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x05:
+                    WriteSingleCoilResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x06:
+                    WriteSingleRegisterResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x0F:
+                    WriteMultipleCoilsResponseHandler?.Invoke(this, response);
+                    break;
+                case 0x10:
+                    WriteMultipleRegistersResponseHandler?.Invoke(this, response);
+                    break;
             }
         }
 

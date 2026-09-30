@@ -337,6 +337,31 @@ namespace ModBusLIB.Tests
             ExpectArgumentFailure(() => bus.MaxRetries = -1, "negative retry count rejected");
         }
 
+
+        private static void TestPacketDispatch()
+        {
+            var bus = new ModBus();
+            byte[] request = WithCrc(bus, 0x31, 0x03, 0, 0, 0, 1);
+            PreparePending(bus, 0x31, 0x03, request);
+            int events = 0;
+            ushort value = 0;
+            bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
+            {
+                events++;
+                value = e.registers[0];
+            };
+            Invoke(bus, "ProcessPacket", WithCrc(bus, 0x31, 0x03, 0x02, 0x12, 0x34));
+            Assert(events == 1 && value == 0x1234, "validated packet dispatches decoded response event");
+            Assert(!Get<bool>(bus, "request_pending"), "validated packet clears pending request");
+
+            PreparePending(bus, 0x31, 0x03, request);
+            byte[] badCrc = WithCrc(bus, 0x31, 0x03, 0x02, 0x12, 0x34);
+            badCrc[badCrc.Length - 1] ^= 0xFF;
+            Invoke(bus, "ProcessPacket", badCrc);
+            Assert(events == 1, "CRC-invalid packet does not dispatch response event");
+            Assert(bus.CrcFailCount == 1, "CRC-invalid packet increments failure count");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -348,6 +373,7 @@ namespace ModBusLIB.Tests
             TestCloseClearsPendingRequest();
             TestReinitializeRejected();
             TestTimeoutConfigurationValidation();
+            TestPacketDispatch();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
