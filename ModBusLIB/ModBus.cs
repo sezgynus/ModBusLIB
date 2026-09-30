@@ -308,7 +308,7 @@ namespace ModBusLIB
                 modbus_cnt++;
                 if (modbus_cnt > 20)
                 {
-                    if (rx_buf_index > 5)
+                    if (rx_buf_index >= 5)
                     {
                         byte[] packet = new byte[rx_buf_index];
                         for (int i = 0; i < packet.Length; i++)
