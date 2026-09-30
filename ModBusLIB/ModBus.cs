@@ -498,8 +498,23 @@ namespace ModBusLIB
 
             if (retryFrame != null)
             {
-                if (Port != null && Port.IsOpen)
-                    Port.Write(retryFrame, 0, retryFrame.Length);
+                try
+                {
+                    if (Port != null && Port.IsOpen)
+                        Port.Write(retryFrame, 0, retryFrame.Length);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Keep the worker alive. The request will expire normally.
+                }
+                catch (System.IO.IOException)
+                {
+                    // Serial transport failures are handled by the normal timeout path.
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // The port may have disappeared or become unavailable between checks.
+                }
                 return;
             }
 
