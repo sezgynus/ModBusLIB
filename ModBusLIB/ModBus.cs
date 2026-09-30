@@ -575,23 +575,50 @@ namespace ModBusLIB
 
         private void serial_rx(object sender, SerialDataReceivedEventArgs e)
         {
+            try
+            {
+                lock (rx_lock)
+                {
+                    if (Port == null || !Port.IsOpen)
+                        return;
+
+                    new_packet = true;
+                    int length = Port.BytesToRead;
+                    for (int i = 0; i < length; i++)
+                    {
+                        if (rx_buf_index >= rx_buf.Length)
+                        {
+                            rx_buf_index = 0;
+                            new_packet = false;
+                            Port.DiscardInBuffer();
+                            break;
+                        }
+
+                        rx_buf[rx_buf_index++] = (byte)Port.ReadByte();
+                        last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+                    }
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                ResetReceiveState();
+            }
+            catch (System.IO.IOException)
+            {
+                ResetReceiveState();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                ResetReceiveState();
+            }
+        }
+
+        private void ResetReceiveState()
+        {
             lock (rx_lock)
             {
-            new_packet = true;
-            int length = Port.BytesToRead;
-            for (int i = 0; i < length; i++)
-            {
-                if (rx_buf_index >= rx_buf.Length)
-                {
-                    rx_buf_index = 0;
-                    new_packet = false;
-                    Port.DiscardInBuffer();
-                    break;
-                }
-                if (Port != null && Port.IsOpen) rx_buf[rx_buf_index] = (byte)Port.ReadByte();
-                rx_buf_index++;
-                last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
-            }
+                rx_buf_index = 0;
+                new_packet = false;
             }
         }
 
