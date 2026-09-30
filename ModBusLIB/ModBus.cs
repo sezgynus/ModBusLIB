@@ -176,8 +176,17 @@ namespace ModBusLIB
         public void Close()
         {
             SerialPort port = Port;
-            if (port != null)
-                port.DataReceived -= serial_rx;
+            Exception transportException = null;
+
+            try
+            {
+                if (port != null)
+                    port.DataReceived -= serial_rx;
+            }
+            catch (Exception ex)
+            {
+                transportException = ex;
+            }
 
             us_timer_flag = false;
             if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer)
@@ -197,18 +206,45 @@ namespace ModBusLIB
                 pending_since_ms = 0;
             }
 
-            if (port != null)
+            try
             {
-                if (port.IsOpen)
-                    port.Close();
-                port.Dispose();
+                if (port != null)
+                {
+                    try
+                    {
+                        if (port.IsOpen)
+                            port.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (transportException == null)
+                            transportException = ex;
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            port.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            if (transportException == null)
+                                transportException = ex;
+                        }
+                    }
+                }
+            }
+            finally
+            {
                 if (ReferenceEquals(Port, port))
                     Port = null;
+                microtimer.Stop();
+                microtimer.Reset();
+                us_timer = null;
             }
 
-            microtimer.Stop();
-            microtimer.Reset();
-            us_timer = null;
+            if (transportException != null)
+                throw transportException;
         }
         public void Initialize(string portName, int baudRate=115200, Parity parity=Parity.Even)
         {
@@ -251,14 +287,24 @@ namespace ModBusLIB
             catch
             {
                 us_timer_flag = false;
-                newPort.DataReceived -= serial_rx;
-                if (newPort.IsOpen)
-                    newPort.Close();
-                newPort.Dispose();
-                if (ReferenceEquals(Port, newPort))
-                    Port = null;
-                us_timer = null;
-                microtimer.Reset();
+                if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer)
+                    us_timer.Join(2000);
+
+                try
+                {
+                    newPort.DataReceived -= serial_rx;
+                    if (newPort.IsOpen)
+                        newPort.Close();
+                }
+                finally
+                {
+                    newPort.Dispose();
+                    if (ReferenceEquals(Port, newPort))
+                        Port = null;
+                    us_timer = null;
+                    microtimer.Stop();
+                    microtimer.Reset();
+                }
                 throw;
             }
         }

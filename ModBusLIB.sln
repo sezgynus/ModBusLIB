@@ -5,6 +5,8 @@ VisualStudioVersion = 17.2.32602.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModBusLIB", "ModBusLIB\ModBusLIB.csproj", "{1DC8E186-489D-4318-9429-39A5A8ADB590}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModBusLIB.Tests", "ModBusLIB.Tests\ModBusLIB.Tests.csproj", "{B9A52969-E5F1-4DB7-A4C9-5E70C95E4490}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{1DC8E186-489D-4318-9429-39A5A8ADB590}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1DC8E186-489D-4318-9429-39A5A8ADB590}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1DC8E186-489D-4318-9429-39A5A8ADB590}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9A52969-E5F1-4DB7-A4C9-5E70C95E4490}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9A52969-E5F1-4DB7-A4C9-5E70C95E4490}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9A52969-E5F1-4DB7-A4C9-5E70C95E4490}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9A52969-E5F1-4DB7-A4C9-5E70C95E4490}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
