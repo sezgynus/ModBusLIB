@@ -143,6 +143,8 @@ bus.WriteMultipleRegisters(1, 10, (ushort)values.Length, values);
 
 Only one request may be outstanding at a time. Sending another request before the current request completes or times out throws `InvalidOperationException`.
 
+For a matching response, response validation, request metadata capture, and completion of the outstanding request are performed atomically under the request-state lock. This prevents lifecycle or concurrent state changes from separating validation from request completion.
+
 ## Writing coils
 
 A single coil is written with a Boolean value:
@@ -206,6 +208,8 @@ bus.MaxRetries = 2;
 ```
 
 If all attempts expire, `RequestTimeoutHandler` is raised with the slave ID, function code, and retry count. Once the timeout is completed, the request slot becomes available for the next request.
+
+If an RTU response has started arriving when the request deadline is reached, timeout processing is deferred while bytes are still arriving. The deferral is bounded by the RTU frame boundary: once no new byte has arrived for `t3.5`, normal packet processing runs before timeout handling.
 
 ## Validation
 

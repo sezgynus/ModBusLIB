@@ -143,6 +143,8 @@ bus.WriteMultipleRegisters(1, 10, (ushort)values.Length, values);
 
 Aynı anda yalnızca bir istek aktif olabilir. Mevcut istek cevaplanmadan veya timeout olmadan ikinci bir istek gönderilirse `InvalidOperationException` oluşur.
 
+Eşleşen bir cevap için response doğrulaması, request metadata snapshot'ı ve aktif request'in tamamlanması request-state lock altında atomik olarak gerçekleştirilir. Böylece lifecycle veya eşzamanlı state değişikliklerinin doğrulama ile request completion arasına girmesi engellenir.
+
 ## Coil yazma
 
 Tek coil Boolean değer ile yazılır:
@@ -206,6 +208,8 @@ bus.MaxRetries = 2;
 ```
 
 Tüm denemeler timeout olduğunda `RequestTimeoutHandler`, slave ID, fonksiyon kodu ve retry sayısı ile tetiklenir. Timeout tamamlandıktan sonra yeni istek için request slot'u serbest bırakılır.
+
+Request deadline dolduğunda bir RTU cevabı alınmaya başlanmışsa, byte'lar gelmeye devam ettiği sürece timeout işlemi ertelenir. Bu erteleme RTU frame sınırıyla sınırlıdır: `t3.5` boyunca yeni byte gelmediğinde normal paket işleme timeout kontrolünden önce çalışır.
 
 ## Girdi doğrulama
 
