@@ -273,6 +273,7 @@ namespace ModBusLIB
         private int modbus_read_serializer(byte function, byte slave_id, ushort start, ushort count)
         {
             int l = 8;
+            tx_buf = new byte[l];
             if ((function == 0x01) | (function == 0x02) | (function == 0x03) | (function == 0x04))
             {
                 tx_buf[0] = slave_id;
@@ -295,6 +296,10 @@ namespace ModBusLIB
         private int modbus_write_serializer(byte function, byte slave_id, ushort start, ushort count, byte[] bdata=null, ushort[] udata=null)
         {
             int l = 0;
+            int frameLength = (function == 0x0F) ? 9 + ((count + 7) / 8)
+                            : (function == 0x10) ? 9 + (count * 2)
+                            : 8;
+            tx_buf = new byte[frameLength];
             if (function == 0x05)
             {
                 l = 8;
