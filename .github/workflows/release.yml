@@ -1,0 +1,93 @@
+name: Release ModBusLIB
+on:
+  workflow_run:
+    workflows: ["ModBusLIB Tests"]
+    types: [completed]
+permissions:
+  contents: write
+concurrency:
+  group: modbuslib-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'master'
+    runs-on: windows-latest
+    steps:
+      - name: Verify tested commit is current signed master
+        id: verify
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json"; "X-GitHub-Api-Version" = "2022-11-28" }
+          $branch = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/branches/master"
+          $masterSha = $branch.commit.sha
+          if ($masterSha -ne $env:TESTED_SHA) {
+            Write-Host "Skipping stale test run. Tested: $env:TESTED_SHA, master: $masterSha"
+            "release=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          $commit = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/commits/$masterSha"
+          if (-not $commit.commit.verification.verified) {
+            Write-Host "Skipping unsigned/unverified master commit $masterSha"
+            "release=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          "release=true" >> $env:GITHUB_OUTPUT
+          "sha=$masterSha" >> $env:GITHUB_OUTPUT
+      - name: Checkout tested master commit
+        if: steps.verify.outputs.release == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.verify.outputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up MSBuild
+        if: steps.verify.outputs.release == 'true'
+        uses: microsoft/setup-msbuild@v2
+      - name: Determine next version
+        if: steps.verify.outputs.release == 'true'
+        id: version
+        shell: pwsh
+        run: |
+          git fetch --tags --force
+          $versions = git tag --list "v*.*.*" | Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' } | ForEach-Object {
+            if ($_ -match '^v(\d+)\.(\d+)\.(\d+)$') {
+              [PSCustomObject]@{ Tag = $_; Major = [int]$Matches[1]; Minor = [int]$Matches[2]; Patch = [int]$Matches[3] }
+            }
+          } | Sort-Object Major, Minor, Patch -Descending
+          if ($versions) {
+            $latest = $versions | Select-Object -First 1
+            $next = "v$($latest.Major).$($latest.Minor).$($latest.Patch + 1)"
+          } else { $next = "v1.0.0" }
+          Write-Host "Next version: $next"
+          "tag=$next" >> $env:GITHUB_OUTPUT
+      - name: Build release DLL
+        if: steps.verify.outputs.release == 'true'
+        run: msbuild ModBusLIB\ModBusLIB.csproj /p:Configuration=Release
+      - name: Run regression tests again on release build
+        if: steps.verify.outputs.release == 'true'
+        shell: pwsh
+        run: |
+          msbuild ModBusLIB.Tests\ModBusLIB.Tests.csproj /p:Configuration=Release
+          .\ModBusLIB.Tests\bin\Release\ModBusLIB.Tests.exe
+      - name: Package release
+        if: steps.verify.outputs.release == 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $stage = Join-Path $env:RUNNER_TEMP "ModBusLIB-$tag"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "ModBusLIB\bin\Release\ModBusLIB.dll" $stage
+          if (Test-Path "ModBusLIB\bin\Release\ModBusLIB.pdb") { Copy-Item "ModBusLIB\bin\Release\ModBusLIB.pdb" $stage }
+          Compress-Archive -Path "$stage\*" -DestinationPath "ModBusLIB-$tag.zip" -Force
+      - name: Create tag and GitHub Release
+        if: steps.verify.outputs.release == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $sha = "${{ steps.verify.outputs.sha }}"
+          gh release create $tag "ModBusLIB\bin\Release\ModBusLIB.dll" "ModBusLIB-$tag.zip" --repo "${{ github.repository }}" --target $sha --title "ModBusLIB $tag" --generate-notes
