@@ -315,6 +315,15 @@ namespace ModBusLIB.Tests
             Assert(Get<long>(bus, "pending_since_ms") == 0L, "Close clears pending timestamp");
         }
 
+
+        private static void TestReinitializeRejected()
+        {
+            var bus = new ModBus();
+            Set(bus, "us_timer_flag", true);
+            ExpectInvalidOperation(() => bus.Initialize("COM1"), "Initialize rejects an already active instance");
+            Set(bus, "us_timer_flag", false);
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -324,6 +333,7 @@ namespace ModBusLIB.Tests
             TestAdditionalProtocolCoverage();
             TestClosedPortRequestRejected();
             TestCloseClearsPendingRequest();
+            TestReinitializeRejected();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);

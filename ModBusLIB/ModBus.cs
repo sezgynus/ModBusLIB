@@ -139,6 +139,9 @@ namespace ModBusLIB
         }
         public void Initialize(string portName, int baudRate=115200, Parity parity=Parity.Even)
         {
+            if (us_timer_flag || (Port != null && Port.IsOpen))
+                throw new InvalidOperationException("ModBus is already initialized. Call Close() before initializing again.");
+
             if (string.IsNullOrWhiteSpace(portName))
                 throw new ArgumentException("A serial port name is required.", nameof(portName));
             if (baudRate <= 0)
