@@ -1,0 +1,24 @@
+name: ModBusLIB Tests
+
+on:
+  push:
+    branches:
+      - modbus-hardening-refactor
+  pull_request:
+    paths:
+      - 'ModBusLIB/**'
+      - 'ModBusLIB.Tests/**'
+      - '.github/workflows/modbus-tests.yml'
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build library
+        run: msbuild ModBusLIB\ModBusLIB.csproj /p:Configuration=Release
+      - name: Build regression tests
+        run: msbuild ModBusLIB.Tests\ModBusLIB.Tests.csproj /p:Configuration=Release
+      - name: Run regression tests
+        run: .\ModBusLIB.Tests\bin\Release\ModBusLIB.Tests.exe
