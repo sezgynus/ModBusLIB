@@ -306,7 +306,7 @@ namespace ModBusLIB
         {
             int l = 8;
             tx_buf = new byte[l];
-            if ((function == 0x01) | (function == 0x02) | (function == 0x03) | (function == 0x04))
+            if ((function == 0x01) || (function == 0x02) || (function == 0x03) || (function == 0x04))
             {
                 tx_buf[0] = slave_id;
                 tx_buf[1] = function;
