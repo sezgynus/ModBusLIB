@@ -424,7 +424,37 @@ namespace ModBusLIB
             {
                 CheckRequestTimeout();
                 modbus_timer_Tick();
-                Thread.Sleep(1);
+                WaitForNextWorkerIteration();
+            }
+        }
+
+        private void WaitForNextWorkerIteration()
+        {
+            long remainingUs;
+            lock (rx_lock)
+            {
+                if (!new_packet)
+                {
+                    Thread.Sleep(1);
+                    return;
+                }
+
+                long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+                remainingUs = t3_5 - (nowUs - last_rx_us);
+            }
+
+            if (remainingUs > 2000)
+            {
+                Thread.Sleep((int)((remainingUs - 1000) / 1000));
+                return;
+            }
+
+            if (remainingUs > 0)
+            {
+                long targetTicks = microtimer.ElapsedTicks +
+                    (long)((remainingUs / 1000000.0) * Stopwatch.Frequency);
+                while (us_timer_flag && microtimer.ElapsedTicks < targetTicks)
+                    Thread.Yield();
             }
         }
 
