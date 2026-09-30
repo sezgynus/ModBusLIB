@@ -130,7 +130,7 @@ namespace ModBusLIB
             public ushort[] registers { get { return Registers; } set { Registers = value; } }
         }
 
-        private static void DecodeReadData(ReadResponseArgs response, byte function)
+        private static void DecodeReadData(ReadResponseArgs response, byte function, ushort requestedQuantity = 0)
         {
             if (response.IsException || response.Frame == null || response.Frame.Length < 5)
                 return;
@@ -138,7 +138,8 @@ namespace ModBusLIB
             int byteCount = response.Frame[2];
             if (function == 0x01 || function == 0x02)
             {
-                response.Bits = new bool[byteCount * 8];
+                int bitCount = requestedQuantity > 0 ? requestedQuantity : byteCount * 8;
+                response.Bits = new bool[bitCount];
                 for (int i = 0; i < response.Bits.Length; i++)
                     response.Bits[i] = (response.Frame[3 + (i / 8)] & (1 << (i % 8))) != 0;
             }
@@ -276,7 +277,7 @@ namespace ModBusLIB
             packet_size=modbus_write_serializer(0x05, slave_id, adress, 0, value);
             SendRequest(slave_id, 0x05, packet_size);
         }
-        public int WriteMultipleCoils(byte slave_id, ushort start, ushort count,byte[] pdata)//0x15
+        public int WriteMultipleCoils(byte slave_id, ushort start, ushort count,byte[] pdata)//0x0F
         {
             ValidateRequest(slave_id, start, count, 1, 1968);
             int requiredBytes = (count + 7) / 8;
@@ -296,7 +297,7 @@ namespace ModBusLIB
             SendRequest(slave_id, 0x06, packet_size);
             return packet_size;
         }
-        public int WriteMultipleRegisters(byte slave_id, ushort start, ushort count, ushort[] udata)//0x16
+        public int WriteMultipleRegisters(byte slave_id, ushort start, ushort count, ushort[] udata)//0x10
         {
             ValidateRequest(slave_id, start, count, 1, 123);
             if (udata == null || udata.Length < count)
@@ -462,8 +463,8 @@ namespace ModBusLIB
         {
             while (us_timer_flag)
             {
-                CheckRequestTimeout();
                 modbus_timer_Tick();
+                CheckRequestTimeout();
                 WaitForNextWorkerIteration();
             }
         }
@@ -553,8 +554,6 @@ namespace ModBusLIB
                 if (pending_retry_count < MaxRetries)
                 {
                     retryFrame = pending_frame;
-                    pending_retry_count++;
-                    pending_since_ms = microtimer.ElapsedMilliseconds;
                 }
                 else
                 {
@@ -571,22 +570,39 @@ namespace ModBusLIB
 
             if (retryFrame != null)
             {
+                bool sent = false;
                 try
                 {
-                    if (Port != null && Port.IsOpen)
-                        Port.Write(retryFrame, 0, retryFrame.Length);
+                    SerialPort port = Port;
+                    if (port != null && port.IsOpen)
+                    {
+                        port.Write(retryFrame, 0, retryFrame.Length);
+                        sent = true;
+                    }
                 }
                 catch (InvalidOperationException)
                 {
-                    // Keep the worker alive. The request will expire normally.
+                    // Leave retry state unchanged; a retry is consumed only after a successful write.
                 }
                 catch (System.IO.IOException)
                 {
-                    // Serial transport failures are handled by the normal timeout path.
+                    // Leave retry state unchanged; the request remains pending for another attempt.
                 }
                 catch (UnauthorizedAccessException)
                 {
-                    // The port may have disappeared or become unavailable between checks.
+                    // Leave retry state unchanged if the transport disappeared.
+                }
+
+                if (sent)
+                {
+                    lock (request_lock)
+                    {
+                        if (request_pending && ReferenceEquals(pending_frame, retryFrame))
+                        {
+                            pending_retry_count++;
+                            pending_since_ms = microtimer.ElapsedMilliseconds;
+                        }
+                    }
                 }
                 return;
             }
@@ -726,11 +742,17 @@ namespace ModBusLIB
             if (!IsExpectedResponse(packet))
                 return;
 
+            ushort requestedQuantity = 0;
             lock (request_lock)
             {
                 if (request_pending && packet[0] == pending_slave_id &&
                     (packet[1] & 0x7F) == pending_function)
                 {
+                    if (pending_frame != null && pending_frame.Length >= 6 &&
+                        (pending_function == 0x01 || pending_function == 0x02))
+                    {
+                        requestedQuantity = (ushort)((pending_frame[4] << 8) | pending_frame[5]);
+                    }
                     request_pending = false;
                     pending_frame = null;
                 }
@@ -747,7 +769,7 @@ namespace ModBusLIB
             if (response.IsException)
                 response.ExceptionCode = packet[2];
             else
-                DecodeReadData(response, function);
+                DecodeReadData(response, function, requestedQuantity);
 
             switch (function)
             {

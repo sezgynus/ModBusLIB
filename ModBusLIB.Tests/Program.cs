@@ -400,12 +400,9 @@ namespace ModBusLIB.Tests
                 reportedRetries = e.Retries;
             };
             Invoke(retryBus, "CheckRequestTimeout");
-            Assert(Get<int>(retryBus, "pending_retry_count") == 1 && Get<bool>(retryBus, "request_pending"),
-                "retry attempt increments count and keeps request pending");
-            Set(retryBus, "pending_since_ms", -1000L);
-            Invoke(retryBus, "CheckRequestTimeout");
-            Assert(retryTimeouts == 1 && reportedRetries == 1 && !Get<bool>(retryBus, "request_pending"),
-                "request times out after configured retry count");
+            Assert(Get<int>(retryBus, "pending_retry_count") == 0 && Get<bool>(retryBus, "request_pending"),
+                "unavailable transport does not consume a retry");
+            Assert(retryTimeouts == 0, "unavailable transport keeps request pending for a future retry");
 
             var exceptionBus = new ModBus();
             byte[] exceptionRequest = WithCrc(exceptionBus, 0x51, 0x03, 0, 0, 0, 1);
@@ -470,6 +467,26 @@ namespace ModBusLIB.Tests
             Assert(called == 1, "timeout callback failure does not block later subscribers");
         }
 
+
+        private static void TestRequestedCoilQuantityTrimsPaddingBits()
+        {
+            var bus = new ModBus();
+            byte[] request = WithCrc(bus, 1, 1, 0, 0, 0, 9);
+            PreparePending(bus, 1, 1, request);
+            int bitCount = -1;
+            bus.ReadCoilsResponseHandler += (sender, e) => bitCount = e.Bits.Length;
+            Invoke(bus, "ProcessPacket", WithCrc(bus, 1, 1, 2, 0x55, 0x01));
+            Assert(bitCount == 9, "FC01 decoded bits match requested quantity instead of padded byte size");
+
+            var discreteBus = new ModBus();
+            byte[] discreteRequest = WithCrc(discreteBus, 1, 2, 0, 0, 0, 9);
+            PreparePending(discreteBus, 1, 2, discreteRequest);
+            int discreteBitCount = -1;
+            discreteBus.ReadDiscreteInputsResponseHandler += (sender, e) => discreteBitCount = e.Bits.Length;
+            Invoke(discreteBus, "ProcessPacket", WithCrc(discreteBus, 1, 2, 2, 0xAA, 0x01));
+            Assert(discreteBitCount == 9, "FC02 decoded bits match requested quantity instead of padded byte size");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -485,6 +502,7 @@ namespace ModBusLIB.Tests
             TestTimeoutAndExceptionLifecycle();
             TestResponseHandlerExceptionIsolation();
             TestTimeoutHandlerExceptionIsolation();
+            TestRequestedCoilQuantityTrimsPaddingBits();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
