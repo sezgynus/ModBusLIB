@@ -290,6 +290,13 @@ namespace ModBusLIB
             int length = Port.BytesToRead;
             for (int i = 0; i < length; i++)
             {
+                if (rx_buf_index >= rx_buf.Length)
+                {
+                    rx_buf_index = 0;
+                    new_packet = false;
+                    Port.DiscardInBuffer();
+                    break;
+                }
                 if (Port.IsOpen & (Port != null)) rx_buf[rx_buf_index] = (byte)Port.ReadByte();
                 rx_buf_index++;
                 last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
