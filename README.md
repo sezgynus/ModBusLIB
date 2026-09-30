@@ -598,7 +598,7 @@ Serial receive processing and RTU frame completion run on background threads. Sh
 
 Response and timeout event handlers are therefore not guaranteed to execute on a UI thread. Windows Forms or WPF applications should marshal UI updates to their UI thread.
 
-`Close()` stops the worker thread cooperatively and closes the serial port.
+`Close()` stops the worker thread cooperatively, clears internal request/RX state, stops the internal timer, and closes/disposes the transport. If transport close or dispose fails, library state cleanup is still completed first and the transport exception is then propagated to the caller.
 
 ## Tests
 

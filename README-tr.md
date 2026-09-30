@@ -597,7 +597,7 @@ Seri port alımı ve RTU çerçeve tamamlama işlemleri arka plan thread'lerinde
 
 Bu nedenle response ve timeout event handler'larının UI thread üzerinde çalışacağı garanti edilmez. Windows Forms veya WPF uygulamalarında UI güncellemeleri uygun dispatch yöntemiyle UI thread'e aktarılmalıdır.
 
-`Close()`, worker thread'i kontrollü biçimde durdurur ve seri portu kapatır.
+`Close()`, worker thread'i kontrollü biçimde durdurur, dahili request/RX durumunu temizler, dahili timer'ı durdurur ve transport'u kapatıp dispose eder. Transport close veya dispose işlemi hata verirse önce kütüphane durum temizliği tamamlanır, ardından transport exception'ı çağıran koda iletilir.
 
 ## Testler
 
