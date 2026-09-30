@@ -66,6 +66,17 @@ jobs:
           } else { $next = "v1.0.0" }
           Write-Host "Next version: $next"
           "tag=$next" >> $env:GITHUB_OUTPUT
+          "version=$($next.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+      - name: Stamp DLL file version
+        if: steps.verify.outputs.release == 'true'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $assemblyInfo = "ModBusLIB\Properties\AssemblyInfo.cs"
+          $content = Get-Content $assemblyInfo -Raw
+          $content = [regex]::Replace($content, '\[assembly: AssemblyFileVersion\("[^"]+"\)\]', "[assembly: AssemblyFileVersion(`"$version.0`")]")
+          Set-Content -Path $assemblyInfo -Value $content -Encoding UTF8
+          Write-Host "Stamped AssemblyFileVersion $version.0"
       - name: Build release DLL
         if: steps.verify.outputs.release == 'true'
         run: msbuild ModBusLIB\ModBusLIB.csproj /p:Configuration=Release
