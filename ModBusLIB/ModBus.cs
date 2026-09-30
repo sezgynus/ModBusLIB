@@ -10,7 +10,6 @@ namespace ModBusLIB
     {   
         public SerialPort Port { get; private set; }
         public int CrcFailCount { get; private set; }
-        private long t1_5;
         private long t3_5;
         private Stopwatch microtimer = new Stopwatch();
         private byte[] rx_buf, tx_buf;
@@ -199,10 +198,8 @@ namespace ModBusLIB
             if (baudRate > 19200)
             {
                 t3_5 = 1750;
-                t1_5 = 750;
             }
             else {
-                t1_5 = 16500000 / baudRate;
                 t3_5 = 38500000 / baudRate;
             }
             SerialPort newPort = new SerialPort(portName, baudRate, parity, 8, stopBits);
