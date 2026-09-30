@@ -560,7 +560,7 @@ namespace ModBusLIB
                                 e.crc_ok = crc_okk;
                                 e.pdu = packet;
                                 e.slave_id = packet[0];
-                                if ((rx_buf[1] & 0x80) > 0)
+                                if ((packet[1] & 0x80) > 0)
                                 {
                                     e.ex_code = packet[2];
                                     e.ex_resp = true;
