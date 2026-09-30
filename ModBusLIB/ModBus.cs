@@ -317,7 +317,7 @@ namespace ModBusLIB
                         }
                         rx_buf_index = 0;
                         new_packet = false;
-                        if (rx_buf[0] == 0x55)
+                        if (packet.Length > 0)
                         {
                             bool crc_okk = false;
                             modbus_cnt = 0;
