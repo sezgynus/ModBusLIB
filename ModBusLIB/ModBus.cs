@@ -24,7 +24,7 @@ namespace ModBusLIB
         private int rx_buf_index = 0;
         private bool us_timer_flag = false;
         private bool new_packet=false;
-        private int modbus_cnt;
+        private long last_rx_us;
         private Thread us_timer;
 
         public event EventHandler<ReadResponseArgs> ReadCoilsResponseHandler;
@@ -279,25 +279,20 @@ namespace ModBusLIB
         {
             while (us_timer_flag)
             {
-                double useconds = ((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000;
-                if (useconds > 250)
-                {
-                    microtimer.Restart();
-                    modbus_timer_Tick();
-                }
+                modbus_timer_Tick();
+                Thread.Sleep(1);
             }
         }
 
         private void serial_rx(object sender, SerialDataReceivedEventArgs e)
         {
             new_packet = true;
-            modbus_cnt = 0;
             int length = Port.BytesToRead;
             for (int i = 0; i < length; i++)
             {
-                modbus_cnt = 0;
                 if (Port.IsOpen & (Port != null)) rx_buf[rx_buf_index] = (byte)Port.ReadByte();
                 rx_buf_index++;
+                last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
             }
         }
 
@@ -305,8 +300,8 @@ namespace ModBusLIB
         {
             if (new_packet)
             {
-                modbus_cnt++;
-                if (modbus_cnt > 20)
+                long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+                if ((nowUs - last_rx_us) >= t3_5)
                 {
                     if (rx_buf_index >= 5)
                     {
@@ -320,7 +315,6 @@ namespace ModBusLIB
                         if (packet.Length > 0)
                         {
                             bool crc_okk = false;
-                            modbus_cnt = 0;
                             ushort calculated_crc = CRC16_MODBUS(packet, (packet.Length - 2));
                             byte[] calc_crc = BitConverter.GetBytes(calculated_crc);
                             byte[] in_crc = new byte[2];
