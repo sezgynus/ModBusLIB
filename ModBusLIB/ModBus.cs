@@ -5,7 +5,6 @@ using System.Threading;
 
 namespace ModBusLIB
 {
-    
     internal interface IModbusTransport : IDisposable
     {
         event EventHandler DataReceived;
@@ -21,19 +20,41 @@ namespace ModBusLIB
     internal sealed class SerialPortTransport : IModbusTransport
     {
         private readonly SerialPort port;
+
         public event EventHandler DataReceived;
+
         public SerialPortTransport(string portName, int baudRate, Parity parity, StopBits stopBits)
-        { port = new SerialPort(portName, baudRate, parity, 8, stopBits); port.DataReceived += OnDataReceived; }
-        public bool IsOpen { get { return port.IsOpen; } } public string PortName { get { return port.PortName; } }
-        public int BytesToRead { get { return port.BytesToRead; } } public void Open() { port.Open(); } public void Close() { port.Close(); }
+        {
+            port = new SerialPort(portName, baudRate, parity, 8, stopBits);
+            port.DataReceived += OnDataReceived;
+        }
+
+        public bool IsOpen { get { return port.IsOpen; } }
+        public string PortName { get { return port.PortName; } }
+        public int BytesToRead { get { return port.BytesToRead; } }
+
+        public void Open() { port.Open(); }
+        public void Close() { port.Close(); }
         public void Write(byte[] buffer, int offset, int count) { port.Write(buffer, offset, count); }
-        public int ReadByte() { return port.ReadByte(); } public void DiscardInBuffer() { port.DiscardInBuffer(); }
-        private void OnDataReceived(object sender, SerialDataReceivedEventArgs e) { EventHandler h = DataReceived; if (h != null) h(this, EventArgs.Empty); }
-        public void Dispose() { port.DataReceived -= OnDataReceived; port.Dispose(); }
+        public int ReadByte() { return port.ReadByte(); }
+        public void DiscardInBuffer() { port.DiscardInBuffer(); }
+
+        private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            EventHandler handler = DataReceived;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
+        }
+
+        public void Dispose()
+        {
+            port.DataReceived -= OnDataReceived;
+            port.Dispose();
+        }
     }
 
     public class ModBus
-    {   
+    {
         private IModbusTransport transport;
         public bool IsOpen { get { return transport != null && transport.IsOpen; } }
         public string PortName { get { return transport == null ? null : transport.PortName; } }
@@ -182,48 +203,125 @@ namespace ModBusLIB
         }
         public void Close()
         {
-            IModbusTransport currentTransport = transport; Exception transportException = null;
-            try { if (currentTransport != null) currentTransport.DataReceived -= serial_rx; } catch (Exception ex) { transportException = ex; }
+            IModbusTransport currentTransport = transport;
+            Exception transportException = null;
+
+            try
+            {
+                if (currentTransport != null)
+                    currentTransport.DataReceived -= serial_rx;
+            }
+            catch (Exception ex)
+            {
+                transportException = ex;
+            }
             us_timer_flag = false;
-            if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer) us_timer.Join(2000);
-            lock (rx_lock) { new_packet = false; rx_buf_index = 0; }
-            lock (request_lock) { request_pending = false; pending_frame = null; pending_retry_count = 0; pending_since_ms = 0; }
+            if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer)
+                us_timer.Join(2000);
+
+            lock (rx_lock)
+            {
+                new_packet = false;
+                rx_buf_index = 0;
+            }
+
+            lock (request_lock)
+            {
+                request_pending = false;
+                pending_frame = null;
+                pending_retry_count = 0;
+                pending_since_ms = 0;
+            }
             try
             {
                 if (currentTransport != null)
                 {
-                    try { if (currentTransport.IsOpen) currentTransport.Close(); } catch (Exception ex) { if (transportException == null) transportException = ex; }
-                    finally { try { currentTransport.Dispose(); } catch (Exception ex) { if (transportException == null) transportException = ex; } }
+                    try
+                    {
+                        if (currentTransport.IsOpen)
+                            currentTransport.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (transportException == null)
+                            transportException = ex;
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            currentTransport.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            if (transportException == null)
+                                transportException = ex;
+                        }
+                    }
                 }
             }
-            finally { if (ReferenceEquals(transport, currentTransport)) transport = null; microtimer.Stop(); microtimer.Reset(); us_timer = null; }
-            if (transportException != null) throw transportException;
+            finally
+            {
+                if (ReferenceEquals(transport, currentTransport))
+                    transport = null;
+                microtimer.Stop();
+                microtimer.Reset();
+                us_timer = null;
+            }
+
+            if (transportException != null)
+                throw transportException;
         }
         public void Initialize(string portName, int baudRate=115200, Parity parity=Parity.Even)
         {
-            if (string.IsNullOrWhiteSpace(portName)) throw new ArgumentException("A serial port name is required.", nameof(portName));
-            if (baudRate <= 0) throw new ArgumentOutOfRangeException(nameof(baudRate));
+            if (string.IsNullOrWhiteSpace(portName))
+                throw new ArgumentException("A serial port name is required.", nameof(portName));
+            if (baudRate <= 0)
+                throw new ArgumentOutOfRangeException(nameof(baudRate));
             StopBits stopBits = parity == Parity.None ? StopBits.Two : StopBits.One;
             InitializeTransport(new SerialPortTransport(portName, baudRate, parity, stopBits), baudRate);
         }
         internal void InitializeTransport(IModbusTransport newTransport, int baudRate)
         {
-            if (newTransport == null) throw new ArgumentNullException(nameof(newTransport));
-            if (baudRate <= 0) throw new ArgumentOutOfRangeException(nameof(baudRate));
-            if (us_timer_flag || (transport != null && transport.IsOpen)) throw new InvalidOperationException("ModBus is already initialized. Call Close() before initializing again.");
+            if (newTransport == null)
+                throw new ArgumentNullException(nameof(newTransport));
+            if (baudRate <= 0)
+                throw new ArgumentOutOfRangeException(nameof(baudRate));
+            if (us_timer_flag || (transport != null && transport.IsOpen))
+                throw new InvalidOperationException("ModBus is already initialized. Call Close() before initializing again.");
             t3_5 = baudRate > 19200 ? 1750 : 38500000 / baudRate;
             try
             {
-                newTransport.DataReceived += serial_rx; newTransport.Open(); transport = newTransport;
-                rx_buf = new byte[4096]; tx_buf = new byte[8]; us_timer_flag = true;
-                us_timer = new Thread(new ThreadStart(us_timer_task)) { IsBackground = true }; us_timer.Start(); microtimer.Start();
+                newTransport.DataReceived += serial_rx;
+                newTransport.Open();
+                transport = newTransport;
+                rx_buf = new byte[4096];
+                tx_buf = new byte[8];
+                us_timer_flag = true;
+                us_timer = new Thread(new ThreadStart(us_timer_task)) { IsBackground = true };
+                us_timer.Start();
+                microtimer.Start();
             }
             catch
             {
                 us_timer_flag = false;
-                if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer) us_timer.Join(2000);
-                try { newTransport.DataReceived -= serial_rx; if (newTransport.IsOpen) newTransport.Close(); }
-                finally { newTransport.Dispose(); if (ReferenceEquals(transport, newTransport)) transport = null; us_timer = null; microtimer.Stop(); microtimer.Reset(); }
+                if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer)
+                    us_timer.Join(2000);
+                try
+                {
+                    newTransport.DataReceived -= serial_rx;
+                    if (newTransport.IsOpen)
+                        newTransport.Close();
+                }
+                finally
+                {
+                    newTransport.Dispose();
+                    if (ReferenceEquals(transport, newTransport))
+                        transport = null;
+                    us_timer = null;
+                    microtimer.Stop();
+                    microtimer.Reset();
+                }
                 throw;
             }
         }
@@ -266,7 +364,7 @@ namespace ModBusLIB
                 value[0] = 0x00;
                 value[1] = 0x00;
             }
-            packetSize=modbus_write_serializer(0x05, slaveId, address, 0, value);
+            packetSize = modbus_write_serializer(0x05, slaveId, address, 0, value);
             SendRequest(slaveId, 0x05, packetSize);
         }
         public int WriteMultipleCoils(byte slaveId, ushort start, ushort count, byte[] data)//0x0F
@@ -276,7 +374,7 @@ namespace ModBusLIB
             if (data == null || data.Length < requiredBytes)
                 throw new ArgumentException("Packed coil data is shorter than the requested quantity.", nameof(data));
             int packetSize;
-            packetSize=modbus_write_serializer(0x0F, slaveId, start, count, data);
+            packetSize = modbus_write_serializer(0x0F, slaveId, start, count, data);
             SendRequest(slaveId, 0x0F, packetSize);
             return packetSize;
         }
@@ -284,8 +382,8 @@ namespace ModBusLIB
         {
             ValidateSlaveId(slaveId);
             int packetSize;
-            ushort[] udat = { value };
-            packetSize = modbus_write_serializer(0x06, slaveId, address, 0, null ,udat);
+            ushort[] values = { value };
+            packetSize = modbus_write_serializer(0x06, slaveId, address, 0, null, values);
             SendRequest(slaveId, 0x06, packetSize);
             return packetSize;
         }
@@ -339,13 +437,13 @@ namespace ModBusLIB
             return crc;
         }
 
-        private int modbus_read_serializer(byte function, byte slave_id, ushort start, ushort count)
+        private int modbus_read_serializer(byte function, byte slaveId, ushort start, ushort count)
         {
             int l = 8;
             tx_buf = new byte[l];
             if ((function == 0x01) || (function == 0x02) || (function == 0x03) || (function == 0x04))
             {
-                tx_buf[0] = slave_id;
+                tx_buf[0] = slaveId;
                 tx_buf[1] = function;
 
                 tx_buf[2] = (byte)(start >> 8);
@@ -362,7 +460,7 @@ namespace ModBusLIB
             }
             return l;
         }
-        private int modbus_write_serializer(byte function, byte slave_id, ushort start, ushort count, byte[] bdata=null, ushort[] udata=null)
+        private int modbus_write_serializer(byte function, byte slaveId, ushort start, ushort count, byte[] byteData = null, ushort[] registerData = null)
         {
             int l = 0;
             int frameLength = (function == 0x0F) ? 9 + ((count + 7) / 8)
@@ -372,14 +470,14 @@ namespace ModBusLIB
             if (function == 0x05)
             {
                 l = 8;
-                tx_buf[0] = slave_id;
+                tx_buf[0] = slaveId;
                 tx_buf[1] = function;
 
                 tx_buf[2] = (byte)(start >> 8);
                 tx_buf[3] = (byte)start;
 
-                tx_buf[4] = bdata[0];
-                tx_buf[5] = bdata[1];
+                tx_buf[4] = byteData[0];
+                tx_buf[5] = byteData[1];
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
                 tx_buf[l - 2] = (byte)calculated_crc;
                 tx_buf[l - 1] = (byte)(calculated_crc >> 8);
@@ -387,7 +485,7 @@ namespace ModBusLIB
             }
             else if (function == 0x0F)
             {
-                tx_buf[0] = slave_id;
+                tx_buf[0] = slaveId;
                 tx_buf[1] = function;
 
                 tx_buf[2] = (byte)(start >> 8);
@@ -400,7 +498,7 @@ namespace ModBusLIB
                 l = 7;
                 for (int i = 0; i < tx_buf[6]; i++)
                 {
-                    tx_buf[i + 7] = bdata[i];
+                    tx_buf[i + 7] = byteData[i];
                     l++;
                 }
                 l += 2;
@@ -411,14 +509,14 @@ namespace ModBusLIB
             if (function == 0x06)
             {
                 l = 8;
-                tx_buf[0] = slave_id;
+                tx_buf[0] = slaveId;
                 tx_buf[1] = function;
 
                 tx_buf[2] = (byte)(start >> 8);
                 tx_buf[3] = (byte)start;
 
-                tx_buf[4] = (byte)(udata[0] >> 8);
-                tx_buf[5] = (byte)udata[0];
+                tx_buf[4] = (byte)(registerData[0] >> 8);
+                tx_buf[5] = (byte)registerData[0];
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
                 tx_buf[l - 2] = (byte)calculated_crc;
                 tx_buf[l - 1] = (byte)(calculated_crc >> 8);
@@ -427,7 +525,7 @@ namespace ModBusLIB
             if (function == 0x10)
             {
                 l = 8;
-                tx_buf[0] = slave_id;
+                tx_buf[0] = slaveId;
                 tx_buf[1] = function;
 
                 tx_buf[2] = (byte)(start >> 8);
@@ -439,9 +537,9 @@ namespace ModBusLIB
                 l = 7;
                 for (int i = 0; i < count; i++)
                 {
-                    tx_buf[l] = (byte)(udata[i] >> 8);
-                    tx_buf[l + 1] = (byte)udata[i];
-                    l+=2;
+                    tx_buf[l] = (byte)(registerData[i] >> 8);
+                    tx_buf[l + 1] = (byte)registerData[i];
+                    l += 2;
                 }
                 l += 2;
                 ushort calculated_crc = CRC16_MODBUS(tx_buf, l - 2);
