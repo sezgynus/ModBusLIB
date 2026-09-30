@@ -174,12 +174,111 @@ namespace ModBusLIB.Tests
                 "address range overflow rejected");
         }
 
+
+        private static void TestAdditionalProtocolCoverage()
+        {
+            var bus = new ModBus();
+
+            byte[] expectedReadFunctions = { 0x01, 0x02, 0x03, 0x04 };
+            foreach (byte function in expectedReadFunctions)
+            {
+                Invoke(bus, "modbus_read_serializer", function, (byte)0xF7, (ushort)0x1234, (ushort)1);
+                byte[] tx = Get<byte[]>(bus, "tx_buf");
+                Assert(tx.Length == 8 && tx[0] == 0xF7 && tx[1] == function &&
+                    tx[2] == 0x12 && tx[3] == 0x34 && tx[4] == 0x00 && tx[5] == 0x01,
+                    "FC" + function.ToString("X2") + " read serializer fields");
+                Assert(Crc(bus, new byte[] { tx[0], tx[1], tx[2], tx[3], tx[4], tx[5] }) ==
+                    (ushort)(tx[6] | (tx[7] << 8)), "FC" + function.ToString("X2") + " read serializer CRC");
+            }
+
+            byte[] coilData = { 0x55, 0x01 };
+            int coilLen = (int)Invoke(bus, "modbus_write_serializer", (byte)0x0F, (byte)1,
+                (ushort)0x0010, (ushort)9, coilData, null);
+            byte[] coilTx = Get<byte[]>(bus, "tx_buf");
+            Assert(coilLen == 11 && coilTx[6] == 2 && coilTx[7] == 0x55 && coilTx[8] == 0x01,
+                "FC0F packed coil byte count and payload");
+
+            ushort[] regData = { 0x1234, 0xABCD };
+            int regLen = (int)Invoke(bus, "modbus_write_serializer", (byte)0x10, (byte)1,
+                (ushort)0x0020, (ushort)2, null, regData);
+            byte[] regTx = Get<byte[]>(bus, "tx_buf");
+            Assert(regLen == 13 && regTx[6] == 4 &&
+                regTx[7] == 0x12 && regTx[8] == 0x34 && regTx[9] == 0xAB && regTx[10] == 0xCD,
+                "FC10 register payload is big-endian");
+
+            byte[] functions = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0F, 0x10 };
+            foreach (byte function in functions)
+            {
+                byte[] request;
+                byte[] response;
+                if (function >= 0x01 && function <= 0x04)
+                {
+                    ushort quantity = (function <= 0x02) ? (ushort)8 : (ushort)1;
+                    request = WithCrc(bus, 0x22, function, 0x00, 0x00, 0x00, (byte)quantity);
+                    response = (function <= 0x02)
+                        ? WithCrc(bus, 0x22, function, 0x01, 0x5A)
+                        : WithCrc(bus, 0x22, function, 0x02, 0x12, 0x34);
+                }
+                else
+                {
+                    request = WithCrc(bus, 0x22, function, 0x00, 0x10, 0x00, 0x01);
+                    response = (byte[])request.Clone();
+                }
+
+                PreparePending(bus, 0x22, function, request);
+                Assert(Expected(bus, response), "FC" + function.ToString("X2") + " normal response matching");
+
+                PreparePending(bus, 0x22, function, request);
+                byte[] exception = WithCrc(bus, 0x22, (byte)(function | 0x80), 0x02);
+                Assert(Expected(bus, exception), "FC" + function.ToString("X2") + " exception response matching");
+            }
+
+            byte[] fc03Req = WithCrc(bus, 0x22, 0x03, 0, 0, 0, 1);
+            PreparePending(bus, 0x22, 0x03, fc03Req);
+            Assert(!Expected(bus, WithCrc(bus, 0x22, 0x04, 0x02, 0, 1)), "wrong function rejected");
+            Assert(!Expected(bus, new byte[] { 0x22, 0x03, 0, 0 }), "response shorter than five bytes rejected");
+
+            var discrete = new ModBus.ReadResponseArgs
+            {
+                pdu = new byte[] { 1, 2, 1, 0xA5, 0, 0 },
+                ex_resp = false
+            };
+            InvokeStatic("DecodeReadData", discrete, (byte)0x02);
+            Assert(discrete.bits.Length == 8 && discrete.bits[0] && !discrete.bits[1] && discrete.bits[2],
+                "FC02 discrete inputs decoded LSB-first");
+
+            var inputRegs = new ModBus.ReadResponseArgs
+            {
+                pdu = new byte[] { 1, 4, 2, 0xBE, 0xEF, 0, 0 },
+                ex_resp = false
+            };
+            InvokeStatic("DecodeReadData", inputRegs, (byte)0x04);
+            Assert(inputRegs.registers.Length == 1 && inputRegs.registers[0] == 0xBEEF,
+                "FC04 input register decoded big-endian");
+
+            var exceptionData = new ModBus.ReadResponseArgs
+            {
+                pdu = new byte[] { 1, 0x83, 2, 0, 0 },
+                ex_resp = true
+            };
+            InvokeStatic("DecodeReadData", exceptionData, (byte)0x03);
+            Assert(exceptionData.registers == null && exceptionData.bits == null,
+                "exception response is not decoded as normal data");
+
+            InvokeStatic("ValidateRequest", (byte)1, (ushort)65535, (ushort)1, 1, 125);
+            Assert(true, "last Modbus address with quantity one accepted");
+            ExpectArgumentFailure(() => InvokeStatic("ValidateSlaveId", (byte)248), "slave ID 248 rejected");
+            ExpectArgumentFailure(() => InvokeStatic("ValidateRequest", (byte)1, (ushort)0, (ushort)0, 1, 125),
+                "zero quantity rejected");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
             TestResponseValidation();
             TestDecodedData();
             TestLimits();
+            TestAdditionalProtocolCoverage();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
