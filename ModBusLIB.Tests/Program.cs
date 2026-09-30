@@ -324,6 +324,19 @@ namespace ModBusLIB.Tests
             Set(bus, "us_timer_flag", false);
         }
 
+
+        private static void TestTimeoutConfigurationValidation()
+        {
+            var bus = new ModBus();
+            bus.ResponseTimeoutMs = 250;
+            bus.MaxRetries = 3;
+            Assert(bus.ResponseTimeoutMs == 250, "positive response timeout accepted");
+            Assert(bus.MaxRetries == 3, "non-negative retry count accepted");
+            ExpectArgumentFailure(() => bus.ResponseTimeoutMs = 0, "zero response timeout rejected");
+            ExpectArgumentFailure(() => bus.ResponseTimeoutMs = -1, "negative response timeout rejected");
+            ExpectArgumentFailure(() => bus.MaxRetries = -1, "negative retry count rejected");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -334,6 +347,7 @@ namespace ModBusLIB.Tests
             TestClosedPortRequestRejected();
             TestCloseClearsPendingRequest();
             TestReinitializeRejected();
+            TestTimeoutConfigurationValidation();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);

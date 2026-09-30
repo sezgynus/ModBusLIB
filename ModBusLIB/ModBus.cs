@@ -31,8 +31,30 @@ namespace ModBusLIB
         private byte[] pending_frame;
         private long pending_since_ms;
         private int pending_retry_count;
-        public int ResponseTimeoutMs { get; set; } = 1000;
-        public int MaxRetries { get; set; } = 0;
+        private int responseTimeoutMs = 1000;
+        private int maxRetries;
+
+        public int ResponseTimeoutMs
+        {
+            get { return responseTimeoutMs; }
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(value), "Response timeout must be greater than zero.");
+                responseTimeoutMs = value;
+            }
+        }
+
+        public int MaxRetries
+        {
+            get { return maxRetries; }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value), "Maximum retries cannot be negative.");
+                maxRetries = value;
+            }
+        }
 
         public event EventHandler<ReadResponseArgs> ReadCoilsResponseHandler;
         public event EventHandler<ReadResponseArgs> ReadDiscreteInputsResponseHandler;
