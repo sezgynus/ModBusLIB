@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using ModBusLIB;
 
@@ -658,6 +659,34 @@ namespace ModBusLIB.Tests
                 "Close clears library state when transport dispose fails");
         }
 
+        private static void TestActiveReceiveDefersTimeoutUntilFrameBoundary()
+        {
+            var bus = new ModBus { ResponseTimeoutMs = 1, MaxRetries = 0 };
+            Set(bus, "request_pending", true);
+            Set(bus, "pending_slave_id", (byte)1);
+            Set(bus, "pending_function", (byte)3);
+            Set(bus, "pending_frame", new byte[] { 1, 3, 0, 0, 0, 1, 0, 0 });
+            Set(bus, "pending_since_ms", -100L);
+            Set(bus, "t3_5", 1750L);
+
+            Stopwatch timer = Get<Stopwatch>(bus, "microtimer");
+            timer.Start();
+            long nowUs = (long)(((double)timer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+
+            Set(bus, "new_packet", true);
+            Set(bus, "last_rx_us", nowUs);
+            Invoke(bus, "CheckRequestTimeout");
+            Assert(Get<bool>(bus, "request_pending"),
+                "active RX inside t3.5 defers request timeout");
+
+            nowUs = (long)(((double)timer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+            Set(bus, "last_rx_us", nowUs - 2000L);
+            Invoke(bus, "CheckRequestTimeout");
+            Assert(!Get<bool>(bus, "request_pending"),
+                "request timeout proceeds after RX frame boundary");
+            timer.Stop();
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -678,6 +707,7 @@ namespace ModBusLIB.Tests
             TestResponseMetadataAndFrameIsolation();
             TestTransportAbstraction();
             TestTransportLifecycleFailures();
+            TestActiveReceiveDefersTimeoutUntilFrameBoundary();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);

@@ -660,6 +660,16 @@ namespace ModBusLIB
             RequestTimeoutArgs timeout = null;
             byte[] retryFrame = null;
 
+            lock (rx_lock)
+            {
+                if (new_packet)
+                {
+                    long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
+                    if ((nowUs - last_rx_us) < t3_5)
+                        return;
+                }
+            }
+
             lock (request_lock)
             {
                 if (!request_pending || ResponseTimeoutMs <= 0)
