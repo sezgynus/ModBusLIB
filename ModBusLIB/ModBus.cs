@@ -77,7 +77,7 @@ namespace ModBusLIB
             Port.Open();
 
             rx_buf = new byte[4096];
-            tx_buf = new byte[16];
+            tx_buf = new byte[8];
 
             us_timer_flag = true;
             us_timer = new Thread(new ThreadStart(us_timer_task));
