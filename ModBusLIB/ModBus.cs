@@ -112,13 +112,22 @@ namespace ModBusLIB
         }
         public void Close()
         {
+            us_timer_flag = false;
+            if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer)
+                us_timer.Join(2000);
+
+            lock (rx_lock)
+            {
+                new_packet = false;
+                rx_buf_index = 0;
+            }
+
+            if (Port != null && Port.IsOpen)
+                Port.Close();
+
             microtimer.Stop();
             microtimer.Reset();
-            new_packet = false;
-            if(us_timer != null) us_timer.Abort();
-            //rx_buf_index = 0;
-            if (us_timer != null) Port.Close();
-            us_timer_flag = false;
+            us_timer = null;
         }
         public void Initialize(string portName, int baudRate=115200, Parity parity=Parity.Even)
         {
