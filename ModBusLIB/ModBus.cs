@@ -64,9 +64,16 @@ namespace ModBusLIB
 
         public sealed class RequestTimeoutArgs : EventArgs
         {
-            public byte slave_id { get; set; }
-            public byte function { get; set; }
-            public int retries { get; set; }
+            public byte SlaveId { get; set; }
+            public byte Function { get; set; }
+            public int Retries { get; set; }
+
+            [Obsolete("Use SlaveId instead.")]
+            public byte slave_id { get { return SlaveId; } set { SlaveId = value; } }
+            [Obsolete("Use Function instead.")]
+            public byte function { get { return Function; } set { Function = value; } }
+            [Obsolete("Use Retries instead.")]
+            public int retries { get { return Retries; } set { Retries = value; } }
         }
 
         private void SendRequest(byte slaveId, byte function, int packetSize)
@@ -100,32 +107,47 @@ namespace ModBusLIB
         }
         public sealed class ReadResponseArgs : EventArgs
         {
-            public byte[] pdu { get; set; }
-            public bool crc_ok { get; set; }
-            public byte slave_id { get; set; }
-            public bool ex_resp { get; set; }
-            public byte ex_code { get; set; }
-            public bool[] bits { get; set; }
-            public ushort[] registers { get; set; }
+            public byte[] Frame { get; set; }
+            public bool CrcOk { get; set; }
+            public byte SlaveId { get; set; }
+            public bool IsException { get; set; }
+            public byte ExceptionCode { get; set; }
+            public bool[] Bits { get; set; }
+            public ushort[] Registers { get; set; }
+
+            [Obsolete("Use Frame instead.")]
+            public byte[] pdu { get { return Frame; } set { Frame = value; } }
+            [Obsolete("Use CrcOk instead.")]
+            public bool crc_ok { get { return CrcOk; } set { CrcOk = value; } }
+            [Obsolete("Use SlaveId instead.")]
+            public byte slave_id { get { return SlaveId; } set { SlaveId = value; } }
+            [Obsolete("Use IsException instead.")]
+            public bool ex_resp { get { return IsException; } set { IsException = value; } }
+            [Obsolete("Use ExceptionCode instead.")]
+            public byte ex_code { get { return ExceptionCode; } set { ExceptionCode = value; } }
+            [Obsolete("Use Bits instead.")]
+            public bool[] bits { get { return Bits; } set { Bits = value; } }
+            [Obsolete("Use Registers instead.")]
+            public ushort[] registers { get { return Registers; } set { Registers = value; } }
         }
 
         private static void DecodeReadData(ReadResponseArgs response, byte function)
         {
-            if (response.ex_resp || response.pdu == null || response.pdu.Length < 5)
+            if (response.IsException || response.Frame == null || response.Frame.Length < 5)
                 return;
 
-            int byteCount = response.pdu[2];
+            int byteCount = response.Frame[2];
             if (function == 0x01 || function == 0x02)
             {
-                response.bits = new bool[byteCount * 8];
-                for (int i = 0; i < response.bits.Length; i++)
-                    response.bits[i] = (response.pdu[3 + (i / 8)] & (1 << (i % 8))) != 0;
+                response.Bits = new bool[byteCount * 8];
+                for (int i = 0; i < response.Bits.Length; i++)
+                    response.Bits[i] = (response.Frame[3 + (i / 8)] & (1 << (i % 8))) != 0;
             }
             else if (function == 0x03 || function == 0x04)
             {
-                response.registers = new ushort[byteCount / 2];
-                for (int i = 0; i < response.registers.Length; i++)
-                    response.registers[i] = (ushort)((response.pdu[3 + i * 2] << 8) | response.pdu[4 + i * 2]);
+                response.Registers = new ushort[byteCount / 2];
+                for (int i = 0; i < response.Registers.Length; i++)
+                    response.Registers[i] = (ushort)((response.Frame[3 + i * 2] << 8) | response.Frame[4 + i * 2]);
             }
         }
         public void Close()
@@ -516,9 +538,9 @@ namespace ModBusLIB
                 {
                     timeout = new RequestTimeoutArgs
                     {
-                        slave_id = pending_slave_id,
-                        function = pending_function,
-                        retries = pending_retry_count
+                        SlaveId = pending_slave_id,
+                        Function = pending_function,
+                        Retries = pending_retry_count
                     };
                     request_pending = false;
                     pending_frame = null;
@@ -632,13 +654,13 @@ namespace ModBusLIB
             byte function = (byte)(packet[1] & 0x7F);
             var response = new ReadResponseArgs
             {
-                crc_ok = true,
-                pdu = packet,
-                slave_id = packet[0],
-                ex_resp = (packet[1] & 0x80) != 0
+                CrcOk = true,
+                Frame = packet,
+                SlaveId = packet[0],
+                IsException = (packet[1] & 0x80) != 0
             };
-            if (response.ex_resp)
-                response.ex_code = packet[2];
+            if (response.IsException)
+                response.ExceptionCode = packet[2];
             else
                 DecodeReadData(response, function);
 

@@ -95,20 +95,20 @@ class Program
 
         bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
         {
-            if (e.ex_resp)
+            if (e.IsException)
             {
-                Console.WriteLine($"Modbus exception: 0x{e.ex_code:X2}");
+                Console.WriteLine($"Modbus exception: 0x{e.ExceptionCode:X2}");
                 return;
             }
 
-            foreach (ushort value in e.registers)
+            foreach (ushort value in e.Registers)
                 Console.WriteLine(value);
         };
 
         bus.RequestTimeoutHandler += (sender, e) =>
         {
             Console.WriteLine(
-                $"Timeout: slave={e.slave_id}, function=0x{e.function:X2}, retries={e.retries}");
+                $"Timeout: slave={e.SlaveId}, function=0x{e.Function:X2}, retries={e.Retries}");
         };
 
         bus.Initialize("COM3", 115200, Parity.Even);
@@ -177,13 +177,13 @@ Desteklenen her fonksiyon kodunun karşılık gelen bir cevap olayı vardır:
 
 | Özellik | Açıklama |
 | --- | --- |
-| `pdu` | Slave adresi ve CRC dahil alınan tam RTU çerçevesi |
-| `crc_ok` | Uygulamaya iletilen cevabın CRC doğrulama sonucu |
-| `slave_id` | Cevaptaki slave adresi |
-| `ex_resp` | Modbus exception cevabında `true` |
-| `ex_code` | Modbus exception kodu |
-| `bits` | FC01/FC02 cevapları için çözülmüş bit değerleri |
-| `registers` | FC03/FC04 cevapları için çözülmüş 16 bit register değerleri |
+| `Frame` | Slave adresi ve CRC dahil alınan tam RTU çerçevesi |
+| `CrcOk` | Uygulamaya iletilen cevabın CRC doğrulama sonucu |
+| `SlaveId` | Cevaptaki slave adresi |
+| `IsException` | Modbus exception cevabında `true` |
+| `ExceptionCode` | Modbus exception kodu |
+| `Bits` | FC01/FC02 cevapları için çözülmüş bit değerleri |
+| `Registers` | FC03/FC04 cevapları için çözülmüş 16 bit register değerleri |
 
 CRC'si hatalı olan veya aktif istekle eşleşmeyen çerçeveler normal cevap olayı olarak uygulamaya iletilmeden atılır.
 
@@ -285,15 +285,15 @@ RX worker'ını kontrollü biçimde durdurur, RX durumunu sıfırlar, dahili tim
 ```csharp
 bus.ReadCoilsResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
+    if (e.IsException)
     {
-        Console.WriteLine($"Exception 0x{e.ex_code:X2}");
+        Console.WriteLine($"Exception 0x{e.ExceptionCode:X2}");
         return;
     }
 
     // bits[0], istenen ilk coil'e karşılık gelir.
-    for (int i = 0; i < e.bits.Length; i++)
-        Console.WriteLine($"Bit {i}: {e.bits[i]}");
+    for (int i = 0; i < e.Bits.Length; i++)
+        Console.WriteLine($"Bit {i}: {e.Bits[i]}");
 };
 
 bus.ReadCoils(1, 0, 8);
@@ -310,9 +310,9 @@ bus.ReadCoils(1, 0, 8);
 ```csharp
 bus.ReadDiscreteInputsResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
     {
-        bool input0 = e.bits[0];
+        bool input0 = e.Bits[0];
         Console.WriteLine($"Input 0: {input0}");
     }
 };
@@ -320,7 +320,7 @@ bus.ReadDiscreteInputsResponseHandler += (sender, e) =>
 bus.ReadDiscreteInputs(1, 0, 8);
 ```
 
-İmza: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`. Adet: 1–2000 input. Çözülmüş değerler `bits` içinde döner.
+İmza: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`. Adet: 1–2000 input. Çözülmüş değerler `Bits` içinde döner.
 
 </details>
 
@@ -331,10 +331,10 @@ bus.ReadDiscreteInputs(1, 0, 8);
 ```csharp
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
     {
-        for (int i = 0; i < e.registers.Length; i++)
-            Console.WriteLine($"Holding register {i}: {e.registers[i]}");
+        for (int i = 0; i < e.Registers.Length; i++)
+            Console.WriteLine($"Holding register {i}: {e.Registers[i]}");
     }
 };
 
@@ -352,14 +352,14 @@ bus.ReadHoldingRegisters(1, 0, 2);
 ```csharp
 bus.ReadInputRegistersResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
-        Console.WriteLine($"Input register: {e.registers[0]}");
+    if (!e.IsException)
+        Console.WriteLine($"Input register: {e.Registers[0]}");
 };
 
 bus.ReadInputRegisters(1, 0, 1);
 ```
 
-İmza: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`. Adet: 1–125 register. Çözülmüş değerler `registers` içinde döner.
+İmza: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`. Adet: 1–125 register. Çözülmüş değerler `Registers` içinde döner.
 
 </details>
 
@@ -370,8 +370,8 @@ bus.ReadInputRegisters(1, 0, 1);
 ```csharp
 bus.WriteSingleCoilResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
-        Console.WriteLine($"Write failed: 0x{e.ex_code:X2}");
+    if (e.IsException)
+        Console.WriteLine($"Write failed: 0x{e.ExceptionCode:X2}");
     else
         Console.WriteLine("Coil write acknowledged.");
 };
@@ -390,7 +390,7 @@ bus.WriteSingleCoil(1, 5, true);
 ```csharp
 bus.WriteSingleRegisterResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
         Console.WriteLine("Register write acknowledged.");
 };
 
@@ -409,7 +409,7 @@ Console.WriteLine($"TX frame length: {frameLength}");
 ```csharp
 bus.WriteMultipleCoilsResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
         Console.WriteLine("Multiple-coil write acknowledged.");
 };
 
@@ -429,7 +429,7 @@ int frameLength = bus.WriteMultipleCoils(1, 0, 8, coilData);
 ```csharp
 bus.WriteMultipleRegistersResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
         Console.WriteLine("Multiple-register write acknowledged.");
 };
 
@@ -451,22 +451,22 @@ Sekiz fonksiyona ait response event'lerinin tamamı `ReadResponseArgs` kullanır
 ```csharp
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    Console.WriteLine($"Slave: {e.slave_id}");
-    Console.WriteLine($"CRC valid: {e.crc_ok}");
+    Console.WriteLine($"Slave: {e.SlaveId}");
+    Console.WriteLine($"CRC valid: {e.CrcOk}");
 
-    if (e.ex_resp)
+    if (e.IsException)
     {
-        Console.WriteLine($"Exception code: 0x{e.ex_code:X2}");
+        Console.WriteLine($"Exception code: 0x{e.ExceptionCode:X2}");
         return;
     }
 
-    byte[] rawFrame = e.pdu;
-    ushort[] registers = e.registers; // FC03 / FC04
-    bool[] bits = e.bits;             // FC01 / FC02
+    byte[] rawFrame = e.Frame;
+    ushort[] registers = e.Registers; // FC03 / FC04
+    bool[] bits = e.Bits;             // FC01 / FC02
 };
 ```
 
-Tarihsel isminden farklı olarak `pdu`, slave adresi ve CRC dahil alınan tam RTU frame'ini içerir. CRC'si geçersiz frame'ler event oluşturulmadan atıldığı için uygulamaya iletilen normal cevaplarda `crc_ok == true` olur. `bits` yalnız başarılı FC01/FC02 okumalarında, `registers` ise yalnız başarılı FC03/FC04 okumalarında doldurulur.
+Tarihsel isminden farklı olarak `Frame`, slave adresi ve CRC dahil alınan tam RTU frame'ini içerir. CRC'si geçersiz frame'ler event oluşturulmadan atıldığı için uygulamaya iletilen normal cevaplarda `crc_ok == true` olur. `Bits` yalnız başarılı FC01/FC02 okumalarında, `Registers` ise yalnız başarılı FC03/FC04 okumalarında doldurulur.
 
 </details>
 
@@ -479,17 +479,17 @@ Modbus exception cevabı, orijinal fonksiyonun event'i üzerinden iletilir:
 ```csharp
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
+    if (e.IsException)
     {
-        Console.WriteLine($"Slave {e.slave_id} exception döndürdü: 0x{e.ex_code:X2}");
+        Console.WriteLine($"Slave {e.SlaveId} exception döndürdü: 0x{e.ExceptionCode:X2}");
         return;
     }
 
-    // e.registers burada işlenebilir.
+    // e.Registers burada işlenebilir.
 };
 ```
 
-Kütüphane standart 5 baytlık RTU exception frame'lerini kabul eder ve exception kodunu `ex_code` üzerinden verir.
+Kütüphane standart 5 baytlık RTU exception frame'lerini kabul eder ve exception kodunu `ExceptionCode` üzerinden verir.
 
 </details>
 
@@ -503,13 +503,13 @@ bus.MaxRetries = 2;
 
 bus.RequestTimeoutHandler += (sender, e) =>
 {
-    Console.WriteLine($"Slave: {e.slave_id}");
-    Console.WriteLine($"Function: 0x{e.function:X2}");
-    Console.WriteLine($"Yapılan retry: {e.retries}");
+    Console.WriteLine($"Slave: {e.SlaveId}");
+    Console.WriteLine($"Function: 0x{e.Function:X2}");
+    Console.WriteLine($"Yapılan retry: {e.Retries}");
 };
 ```
 
-`RequestTimeoutArgs`; `slave_id`, `function` ve `retries` alanlarını sunar. Event yalnız ilk deneme ve ayarlanan tüm retry'lar timeout olduktan sonra tetiklenir.
+`RequestTimeoutArgs`; `SlaveId`, `Function` ve `Retries` alanlarını sunar. Event yalnız ilk deneme ve ayarlanan tüm retry'lar timeout olduktan sonra tetiklenir.
 
 </details>
 
@@ -544,15 +544,15 @@ var bus = new ModBus
 
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
-        Console.WriteLine($"Exception: 0x{e.ex_code:X2}");
+    if (e.IsException)
+        Console.WriteLine($"Exception: 0x{e.ExceptionCode:X2}");
     else
-        Console.WriteLine($"Value: {e.registers[0]}");
+        Console.WriteLine($"Value: {e.Registers[0]}");
 };
 
 bus.RequestTimeoutHandler += (sender, e) =>
 {
-    Console.WriteLine($"Slave {e.slave_id} cevap vermedi");
+    Console.WriteLine($"Slave {e.SlaveId} cevap vermedi");
 };
 
 bus.Initialize("COM3", 9600, Parity.Even);

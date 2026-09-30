@@ -127,8 +127,8 @@ namespace ModBusLIB.Tests
                 ex_resp = false
             };
             InvokeStatic("DecodeReadData", registerResponse, (byte)0x03);
-            Assert(registerResponse.registers.Length == 2, "register response decoded count");
-            Assert(registerResponse.registers[0] == 0x1234 && registerResponse.registers[1] == 0xABCD,
+            Assert(registerResponse.Registers.Length == 2, "register response decoded count");
+            Assert(registerResponse.Registers[0] == 0x1234 && registerResponse.Registers[1] == 0xABCD,
                 "register response decoded as ushort big-endian");
 
             var coilResponse = new ModBus.ReadResponseArgs
@@ -137,7 +137,7 @@ namespace ModBusLIB.Tests
                 ex_resp = false
             };
             InvokeStatic("DecodeReadData", coilResponse, (byte)0x01);
-            Assert(coilResponse.bits[0] && !coilResponse.bits[1] && coilResponse.bits[2],
+            Assert(coilResponse.Bits[0] && !coilResponse.Bits[1] && coilResponse.Bits[2],
                 "coil bits decoded LSB-first");
         }
 
@@ -262,7 +262,7 @@ namespace ModBusLIB.Tests
                 ex_resp = false
             };
             InvokeStatic("DecodeReadData", discrete, (byte)0x02);
-            Assert(discrete.bits.Length == 8 && discrete.bits[0] && !discrete.bits[1] && discrete.bits[2],
+            Assert(discrete.Bits.Length == 8 && discrete.Bits[0] && !discrete.Bits[1] && discrete.Bits[2],
                 "FC02 discrete inputs decoded LSB-first");
 
             var inputRegs = new ModBus.ReadResponseArgs
@@ -271,7 +271,7 @@ namespace ModBusLIB.Tests
                 ex_resp = false
             };
             InvokeStatic("DecodeReadData", inputRegs, (byte)0x04);
-            Assert(inputRegs.registers.Length == 1 && inputRegs.registers[0] == 0xBEEF,
+            Assert(inputRegs.Registers.Length == 1 && inputRegs.Registers[0] == 0xBEEF,
                 "FC04 input register decoded big-endian");
 
             var exceptionData = new ModBus.ReadResponseArgs
@@ -280,7 +280,7 @@ namespace ModBusLIB.Tests
                 ex_resp = true
             };
             InvokeStatic("DecodeReadData", exceptionData, (byte)0x03);
-            Assert(exceptionData.registers == null && exceptionData.bits == null,
+            Assert(exceptionData.Registers == null && exceptionData.Bits == null,
                 "exception response is not decoded as normal data");
 
             InvokeStatic("ValidateRequest", (byte)1, (ushort)65535, (ushort)1, 1, 125);
@@ -348,7 +348,7 @@ namespace ModBusLIB.Tests
             bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
             {
                 events++;
-                value = e.registers[0];
+                value = e.Registers[0];
             };
             Invoke(bus, "ProcessPacket", WithCrc(bus, 0x31, 0x03, 0x02, 0x12, 0x34));
             Assert(events == 1 && value == 0x1234, "validated packet dispatches decoded response event");

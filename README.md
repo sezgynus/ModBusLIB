@@ -95,20 +95,20 @@ class Program
 
         bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
         {
-            if (e.ex_resp)
+            if (e.IsException)
             {
-                Console.WriteLine($"Modbus exception: 0x{e.ex_code:X2}");
+                Console.WriteLine($"Modbus exception: 0x{e.ExceptionCode:X2}");
                 return;
             }
 
-            foreach (ushort value in e.registers)
+            foreach (ushort value in e.Registers)
                 Console.WriteLine(value);
         };
 
         bus.RequestTimeoutHandler += (sender, e) =>
         {
             Console.WriteLine(
-                $"Timeout: slave={e.slave_id}, function=0x{e.function:X2}, retries={e.retries}");
+                $"Timeout: slave={e.SlaveId}, function=0x{e.Function:X2}, retries={e.Retries}");
         };
 
         bus.Initialize("COM3", 115200, Parity.Even);
@@ -177,13 +177,13 @@ Each supported function code has a corresponding response event:
 
 | Property | Description |
 | --- | --- |
-| `pdu` | Complete received RTU frame, including slave address and CRC |
-| `crc_ok` | CRC validation result for a dispatched response |
-| `slave_id` | Slave address from the response |
-| `ex_resp` | `true` for a Modbus exception response |
-| `ex_code` | Modbus exception code |
-| `bits` | Decoded bit values for FC01/FC02 responses |
-| `registers` | Decoded 16-bit values for FC03/FC04 responses |
+| `Frame` | Complete received RTU frame, including slave address and CRC |
+| `CrcOk` | CRC validation result for a dispatched response |
+| `SlaveId` | Slave address from the response |
+| `IsException` | `true` for a Modbus exception response |
+| `ExceptionCode` | Modbus exception code |
+| `Bits` | Decoded bit values for FC01/FC02 responses |
+| `Registers` | Decoded 16-bit values for FC03/FC04 responses |
 
 Frames with an invalid CRC or frames that do not match the outstanding request are discarded rather than dispatched as normal responses.
 
@@ -286,15 +286,15 @@ Stops the receive worker cooperatively, resets receive state, stops the internal
 ```csharp
 bus.ReadCoilsResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
+    if (e.IsException)
     {
-        Console.WriteLine($"Exception 0x{e.ex_code:X2}");
+        Console.WriteLine($"Exception 0x{e.ExceptionCode:X2}");
         return;
     }
 
     // bits[0] corresponds to the first requested coil.
-    for (int i = 0; i < e.bits.Length; i++)
-        Console.WriteLine($"Bit {i}: {e.bits[i]}");
+    for (int i = 0; i < e.Bits.Length; i++)
+        Console.WriteLine($"Bit {i}: {e.Bits[i]}");
 };
 
 bus.ReadCoils(1, 0, 8);
@@ -311,9 +311,9 @@ Signature: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Quantity
 ```csharp
 bus.ReadDiscreteInputsResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
     {
-        bool input0 = e.bits[0];
+        bool input0 = e.Bits[0];
         Console.WriteLine($"Input 0: {input0}");
     }
 };
@@ -321,7 +321,7 @@ bus.ReadDiscreteInputsResponseHandler += (sender, e) =>
 bus.ReadDiscreteInputs(1, 0, 8);
 ```
 
-Signature: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`. Quantity: 1–2000 inputs. Decoded values are returned in `bits`.
+Signature: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`. Quantity: 1–2000 inputs. Decoded values are returned in `Bits`.
 
 </details>
 
@@ -332,10 +332,10 @@ Signature: `void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)`.
 ```csharp
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
     {
-        for (int i = 0; i < e.registers.Length; i++)
-            Console.WriteLine($"Holding register {i}: {e.registers[i]}");
+        for (int i = 0; i < e.Registers.Length; i++)
+            Console.WriteLine($"Holding register {i}: {e.Registers[i]}");
     }
 };
 
@@ -353,14 +353,14 @@ Signature: `void ReadHoldingRegisters(byte slave_id, ushort start, ushort count)
 ```csharp
 bus.ReadInputRegistersResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
-        Console.WriteLine($"Input register: {e.registers[0]}");
+    if (!e.IsException)
+        Console.WriteLine($"Input register: {e.Registers[0]}");
 };
 
 bus.ReadInputRegisters(1, 0, 1);
 ```
 
-Signature: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`. Quantity: 1–125 registers. Decoded values are returned in `registers`.
+Signature: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`. Quantity: 1–125 registers. Decoded values are returned in `Registers`.
 
 </details>
 
@@ -371,8 +371,8 @@ Signature: `void ReadInputRegisters(byte slave_id, ushort start, ushort count)`.
 ```csharp
 bus.WriteSingleCoilResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
-        Console.WriteLine($"Write failed: 0x{e.ex_code:X2}");
+    if (e.IsException)
+        Console.WriteLine($"Write failed: 0x{e.ExceptionCode:X2}");
     else
         Console.WriteLine("Coil write acknowledged.");
 };
@@ -391,7 +391,7 @@ Signature: `void WriteSingleCoil(byte slave_id, ushort adress, bool coil_value)`
 ```csharp
 bus.WriteSingleRegisterResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
         Console.WriteLine("Register write acknowledged.");
 };
 
@@ -410,7 +410,7 @@ Signature: `int WriteSingleRegister(byte slave_id, ushort adress, ushort udata)`
 ```csharp
 bus.WriteMultipleCoilsResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
         Console.WriteLine("Multiple-coil write acknowledged.");
 };
 
@@ -430,7 +430,7 @@ Signature: `int WriteMultipleCoils(byte slave_id, ushort start, ushort count, by
 ```csharp
 bus.WriteMultipleRegistersResponseHandler += (sender, e) =>
 {
-    if (!e.ex_resp)
+    if (!e.IsException)
         Console.WriteLine("Multiple-register write acknowledged.");
 };
 
@@ -452,22 +452,22 @@ All eight function-specific response events use `ReadResponseArgs`:
 ```csharp
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    Console.WriteLine($"Slave: {e.slave_id}");
-    Console.WriteLine($"CRC valid: {e.crc_ok}");
+    Console.WriteLine($"Slave: {e.SlaveId}");
+    Console.WriteLine($"CRC valid: {e.CrcOk}");
 
-    if (e.ex_resp)
+    if (e.IsException)
     {
-        Console.WriteLine($"Exception code: 0x{e.ex_code:X2}");
+        Console.WriteLine($"Exception code: 0x{e.ExceptionCode:X2}");
         return;
     }
 
-    byte[] rawFrame = e.pdu;
-    ushort[] registers = e.registers; // FC03 / FC04
-    bool[] bits = e.bits;             // FC01 / FC02
+    byte[] rawFrame = e.Frame;
+    ushort[] registers = e.Registers; // FC03 / FC04
+    bool[] bits = e.Bits;             // FC01 / FC02
 };
 ```
 
-Despite its historical name, `pdu` contains the complete received RTU frame, including slave address and CRC. Invalid-CRC frames are discarded before an event is raised, so normally dispatched responses have `crc_ok == true`. `bits` is populated only for successful FC01/FC02 reads, and `registers` only for successful FC03/FC04 reads.
+Despite its historical name, `Frame` contains the complete received RTU frame, including slave address and CRC. Invalid-CRC frames are discarded before an event is raised, so normally dispatched responses have `crc_ok == true`. `Bits` is populated only for successful FC01/FC02 reads, and `Registers` only for successful FC03/FC04 reads.
 
 </details>
 
@@ -480,17 +480,17 @@ A Modbus exception response is delivered through the event belonging to the orig
 ```csharp
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
+    if (e.IsException)
     {
-        Console.WriteLine($"Slave {e.slave_id} returned exception 0x{e.ex_code:X2}");
+        Console.WriteLine($"Slave {e.SlaveId} returned exception 0x{e.ExceptionCode:X2}");
         return;
     }
 
-    // Process e.registers here.
+    // Process e.Registers here.
 };
 ```
 
-The library accepts standard 5-byte RTU exception frames and exposes the exception code through `ex_code`.
+The library accepts standard 5-byte RTU exception frames and exposes the exception code through `ExceptionCode`.
 
 </details>
 
@@ -504,13 +504,13 @@ bus.MaxRetries = 2;
 
 bus.RequestTimeoutHandler += (sender, e) =>
 {
-    Console.WriteLine($"Slave: {e.slave_id}");
-    Console.WriteLine($"Function: 0x{e.function:X2}");
-    Console.WriteLine($"Retries performed: {e.retries}");
+    Console.WriteLine($"Slave: {e.SlaveId}");
+    Console.WriteLine($"Function: 0x{e.Function:X2}");
+    Console.WriteLine($"Retries performed: {e.Retries}");
 };
 ```
 
-`RequestTimeoutArgs` exposes `slave_id`, `function`, and `retries`. The event is raised only after the initial attempt and all configured retries have expired.
+`RequestTimeoutArgs` exposes `SlaveId`, `Function`, and `Retries`. The event is raised only after the initial attempt and all configured retries have expired.
 
 </details>
 
@@ -545,15 +545,15 @@ var bus = new ModBus
 
 bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 {
-    if (e.ex_resp)
-        Console.WriteLine($"Exception: 0x{e.ex_code:X2}");
+    if (e.IsException)
+        Console.WriteLine($"Exception: 0x{e.ExceptionCode:X2}");
     else
-        Console.WriteLine($"Value: {e.registers[0]}");
+        Console.WriteLine($"Value: {e.Registers[0]}");
 };
 
 bus.RequestTimeoutHandler += (sender, e) =>
 {
-    Console.WriteLine($"No response from slave {e.slave_id}");
+    Console.WriteLine($"No response from slave {e.SlaveId}");
 };
 
 bus.Initialize("COM3", 9600, Parity.Even);
