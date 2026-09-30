@@ -26,6 +26,7 @@ namespace ModBusLIB
         private bool new_packet=false;
         private long last_rx_us;
         private Thread us_timer;
+        private readonly object rx_lock = new object();
 
         public event EventHandler<ReadResponseArgs> ReadCoilsResponseHandler;
         public event EventHandler<ReadResponseArgs> ReadDiscreteInputsResponseHandler;
@@ -286,6 +287,8 @@ namespace ModBusLIB
 
         private void serial_rx(object sender, SerialDataReceivedEventArgs e)
         {
+            lock (rx_lock)
+            {
             new_packet = true;
             int length = Port.BytesToRead;
             for (int i = 0; i < length; i++)
@@ -301,10 +304,13 @@ namespace ModBusLIB
                 rx_buf_index++;
                 last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
             }
+            }
         }
 
         private void modbus_timer_Tick()
         {
+            lock (rx_lock)
+            {
             if (new_packet)
             {
                 long nowUs = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
@@ -458,6 +464,7 @@ namespace ModBusLIB
                         new_packet = false;
                     }
                 }
+            }
             }
         }
 
