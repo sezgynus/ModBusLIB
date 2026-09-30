@@ -83,6 +83,28 @@ namespace ModBusLIB
             public byte slave_id { get; set; }
             public bool ex_resp { get; set; }
             public byte ex_code { get; set; }
+            public bool[] bits { get; set; }
+            public ushort[] registers { get; set; }
+        }
+
+        private static void DecodeReadData(ReadResponseArgs response, byte function)
+        {
+            if (response.ex_resp || response.pdu == null || response.pdu.Length < 5)
+                return;
+
+            int byteCount = response.pdu[2];
+            if (function == 0x01 || function == 0x02)
+            {
+                response.bits = new bool[byteCount * 8];
+                for (int i = 0; i < response.bits.Length; i++)
+                    response.bits[i] = (response.pdu[3 + (i / 8)] & (1 << (i % 8))) != 0;
+            }
+            else if (function == 0x03 || function == 0x04)
+            {
+                response.registers = new ushort[byteCount / 2];
+                for (int i = 0; i < response.registers.Length; i++)
+                    response.registers[i] = (ushort)((response.pdu[3 + i * 2] << 8) | response.pdu[4 + i * 2]);
+            }
         }
         public void wirtetest(string data)
         {
@@ -485,6 +507,7 @@ namespace ModBusLIB
                                     e.ex_resp = true;
                                 }
                                 else e.ex_resp = false;
+                                DecodeReadData(e, 0x01);
                                 ReadCoilsResponseHandler?.Invoke(this, e);
                             }
                             else if ((packet[1] & 0x7F) == 0x02)
@@ -499,6 +522,7 @@ namespace ModBusLIB
                                     e.ex_resp = true;
                                 }
                                 else e.ex_resp = false;
+                                DecodeReadData(e, 0x02);
                                 ReadDiscreteInputsResponseHandler?.Invoke(this, e);
                             }
                             else if ((packet[1] & 0x7F) == 0x03)
@@ -513,6 +537,7 @@ namespace ModBusLIB
                                     e.ex_resp = true;
                                 }
                                 else e.ex_resp = false;
+                                DecodeReadData(e, 0x03);
                                 ReadHoldingRegistersResponseHandler?.Invoke(this, e);
                             }
                             else if ((packet[1] & 0x7F) == 0x04)
@@ -527,6 +552,7 @@ namespace ModBusLIB
                                     e.ex_resp = true;
                                 }
                                 else e.ex_resp = false;
+                                DecodeReadData(e, 0x04);
                                 ReadInputRegistersResponseHandler?.Invoke(this, e);
                             }
                             else if ((packet[1] & 0x7F) == 0x05)
