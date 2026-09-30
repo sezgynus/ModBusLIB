@@ -55,6 +55,9 @@ namespace ModBusLIB
         {
             lock (request_lock)
             {
+                if (Port == null || !Port.IsOpen)
+                    throw new InvalidOperationException("Serial port is not open.");
+
                 if (request_pending)
                     throw new InvalidOperationException("A Modbus request is already awaiting a response.");
 

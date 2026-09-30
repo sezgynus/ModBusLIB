@@ -158,6 +158,24 @@ namespace ModBusLIB.Tests
             }
         }
 
+
+        private static void ExpectInvalidOperation(Action action, string name)
+        {
+            try
+            {
+                action();
+                Assert(false, name);
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException)
+            {
+                Assert(true, name);
+            }
+            catch (InvalidOperationException)
+            {
+                Assert(true, name);
+            }
+        }
+
         private static void TestLimits()
         {
             InvokeStatic("ValidateRequest", (byte)1, (ushort)0, (ushort)2000, 1, 2000);
@@ -272,6 +290,16 @@ namespace ModBusLIB.Tests
                 "zero quantity rejected");
         }
 
+
+        private static void TestClosedPortRequestRejected()
+        {
+            var bus = new ModBus();
+            Set(bus, "tx_buf", new byte[8]);
+            ExpectInvalidOperation(() => Invoke(bus, "SendRequest", (byte)1, (byte)3, 8),
+                "request on closed serial port rejected immediately");
+            Assert(!Get<bool>(bus, "request_pending"), "closed-port request does not become pending");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -279,6 +307,7 @@ namespace ModBusLIB.Tests
             TestDecodedData();
             TestLimits();
             TestAdditionalProtocolCoverage();
+            TestClosedPortRequestRejected();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
