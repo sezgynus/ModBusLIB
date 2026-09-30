@@ -170,8 +170,14 @@ namespace ModBusLIB
                 pending_since_ms = 0;
             }
 
-            if (Port != null && Port.IsOpen)
-                Port.Close();
+            if (Port != null)
+            {
+                Port.DataReceived -= serial_rx;
+                if (Port.IsOpen)
+                    Port.Close();
+                Port.Dispose();
+                Port = null;
+            }
 
             microtimer.Stop();
             microtimer.Reset();
