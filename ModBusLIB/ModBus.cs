@@ -467,6 +467,8 @@ namespace ModBusLIB
         private void CheckRequestTimeout()
         {
             RequestTimeoutArgs timeout = null;
+            byte[] retryFrame = null;
+
             lock (request_lock)
             {
                 if (!request_pending || ResponseTimeoutMs <= 0)
@@ -477,23 +479,32 @@ namespace ModBusLIB
 
                 if (pending_retry_count < MaxRetries)
                 {
-                    if (Port != null && Port.IsOpen)
-                        Port.Write(pending_frame, 0, pending_frame.Length);
+                    retryFrame = pending_frame;
                     pending_retry_count++;
                     pending_since_ms = microtimer.ElapsedMilliseconds;
-                    return;
                 }
-
-                timeout = new RequestTimeoutArgs
+                else
                 {
-                    slave_id = pending_slave_id,
-                    function = pending_function,
-                    retries = pending_retry_count
-                };
-                request_pending = false;
-                pending_frame = null;
+                    timeout = new RequestTimeoutArgs
+                    {
+                        slave_id = pending_slave_id,
+                        function = pending_function,
+                        retries = pending_retry_count
+                    };
+                    request_pending = false;
+                    pending_frame = null;
+                }
             }
-            RequestTimeoutHandler?.Invoke(this, timeout);
+
+            if (retryFrame != null)
+            {
+                if (Port != null && Port.IsOpen)
+                    Port.Write(retryFrame, 0, retryFrame.Length);
+                return;
+            }
+
+            if (timeout != null)
+                RequestTimeoutHandler?.Invoke(this, timeout);
         }
 
         private void serial_rx(object sender, SerialDataReceivedEventArgs e)
