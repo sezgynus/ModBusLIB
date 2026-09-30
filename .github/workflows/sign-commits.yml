@@ -49,5 +49,5 @@ jobs:
         if: steps.signature.outputs.signed == 'false'
         shell: bash
         run: |
-          git commit --amend --no-edit -S
+          git commit --amend --no-edit --allow-empty -S
           git push --force-with-lease origin HEAD:master
