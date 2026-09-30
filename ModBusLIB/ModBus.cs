@@ -15,10 +15,6 @@ namespace ModBusLIB
         public SerialPort Port;
         public int crc_fail_count = 0;
         public long t1_5, t3_5,char_time;
-        public byte[] Coils = new byte[250];
-        public byte[] DiscreteInputs = new byte[250];
-        public byte[] InputRegisters = new byte[4000];
-        public byte[] HoldingRegisters = new byte[4000];
         private Stopwatch microtimer = new Stopwatch();
         private byte[] rx_buf, tx_buf;
         private int rx_buf_index = 0;
