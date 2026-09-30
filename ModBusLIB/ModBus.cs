@@ -5,183 +5,43 @@ using System.Threading;
 
 namespace ModBusLIB
 {
-    
-    public class ModBus
-    {   
-        public SerialPort Port { get; private set; }
-        private int crcFailCount;
-        public int CrcFailCount { get { return Volatile.Read(ref crcFailCount); } }
-        private long t3_5;
-        private Stopwatch microtimer = new Stopwatch();
-        private byte[] rx_buf, tx_buf;
-        private int rx_buf_index = 0;
-        private bool us_timer_flag = false;
-        private bool new_packet=false;
-        private long last_rx_us;
-        private Thread us_timer;
-        private readonly object rx_lock = new object();
-        private readonly object request_lock = new object();
-        private bool request_pending;
-        private byte pending_slave_id;
-        private byte pending_function;
-        private byte[] pending_frame;
-        private long pending_since_ms;
-        private int pending_retry_count;
-        private int responseTimeoutMs = 1000;
-        private int maxRetries;
+    internal interface IModbusTransport : IDisposable
+    {
+        event EventHandler DataReceived;
+        bool IsOpen { get; }
+        string PortName { get; }
+        int BytesToRead { get; }
+        void Open();
+        void Close();
+        void Write(byte[] buffer, int offset, int count);
+        int ReadByte();
+        void DiscardInBuffer();
+    }
 
-        public int ResponseTimeoutMs
+    internal sealed class SerialPortTransport : IModbusTransport
+    {
+        private readonly SerialPort port;
+        public event EventHandler DataReceived;
+
+        public SerialPortTransport(string portName, int baudRate, Parity parity, StopBits stopBits)
         {
-            get { return responseTimeoutMs; }
-            set
-            {
-                if (value <= 0)
-                    throw new ArgumentOutOfRangeException(nameof(value), "Response timeout must be greater than zero.");
-                responseTimeoutMs = value;
-            }
+            port = new SerialPort(portName, baudRate, parity, 8, stopBits);
+            port.DataReceived += OnDataReceived;
         }
 
-        public int MaxRetries
-        {
-            get { return maxRetries; }
-            set
-            {
-                if (value < 0)
-                    throw new ArgumentOutOfRangeException(nameof(value), "Maximum retries cannot be negative.");
-                maxRetries = value;
-            }
-        }
-
-        public event EventHandler<ReadResponseArgs> ReadCoilsResponseHandler;
-        public event EventHandler<ReadResponseArgs> ReadDiscreteInputsResponseHandler;
-        public event EventHandler<ReadResponseArgs> ReadHoldingRegistersResponseHandler;
-        public event EventHandler<ReadResponseArgs> ReadInputRegistersResponseHandler;
-        public event EventHandler<ReadResponseArgs> WriteSingleCoilResponseHandler;
-        public event EventHandler<ReadResponseArgs> WriteMultipleCoilsResponseHandler;
-        public event EventHandler<ReadResponseArgs> WriteSingleRegisterResponseHandler;
-        public event EventHandler<ReadResponseArgs> WriteMultipleRegistersResponseHandler;
-        public event EventHandler<RequestTimeoutArgs> RequestTimeoutHandler;
-        public event EventHandler<CallbackExceptionArgs> CallbackExceptionHandler;
-
-        public sealed class CallbackExceptionArgs : EventArgs
-        {
-            public Exception Exception { get; private set; }
-            public string CallbackName { get; private set; }
-
-            public CallbackExceptionArgs(Exception exception, string callbackName)
-            {
-                Exception = exception;
-                CallbackName = callbackName;
-            }
-        }
-
-        public sealed class RequestTimeoutArgs : EventArgs
-        {
-            public byte SlaveId { get; set; }
-            public byte Function { get; set; }
-            public int Retries { get; set; }
-
-            [Obsolete("Use SlaveId instead.")]
-            public byte slave_id { get { return SlaveId; } set { SlaveId = value; } }
-            [Obsolete("Use Function instead.")]
-            public byte function { get { return Function; } set { Function = value; } }
-            [Obsolete("Use Retries instead.")]
-            public int retries { get { return Retries; } set { Retries = value; } }
-        }
-
-        private void SendRequest(byte slaveId, byte function, int packetSize)
-        {
-            lock (request_lock)
-            {
-                if (Port == null || !Port.IsOpen)
-                    throw new InvalidOperationException("Serial port is not open.");
-
-                if (request_pending)
-                    throw new InvalidOperationException("A Modbus request is already awaiting a response.");
-
-                request_pending = true;
-                pending_slave_id = slaveId;
-                pending_function = function;
-                pending_frame = new byte[packetSize];
-                Array.Copy(tx_buf, pending_frame, packetSize);
-                pending_since_ms = microtimer.ElapsedMilliseconds;
-                pending_retry_count = 0;
-                try
-                {
-                    if (Port != null && Port.IsOpen)
-                        Port.Write(tx_buf, 0, packetSize);
-                }
-                catch
-                {
-                    request_pending = false;
-                    throw;
-                }
-            }
-        }
-        public sealed class ReadResponseArgs : EventArgs
-        {
-            private byte[] frame;
-            public byte[] Frame
-            {
-                get { return frame == null ? null : (byte[])frame.Clone(); }
-                set { frame = value == null ? null : (byte[])value.Clone(); }
-            }
-            public bool CrcOk { get; set; }
-            public byte SlaveId { get; set; }
-            public byte Function { get; set; }
-            public ushort StartAddress { get; set; }
-            public ushort RequestedQuantity { get; set; }
-            public bool IsException { get; set; }
-            public byte ExceptionCode { get; set; }
-            public bool[] Bits { get; set; }
-            public ushort[] Registers { get; set; }
-
-            [Obsolete("Use Frame instead.")]
-            public byte[] pdu { get { return Frame; } set { Frame = value; } }
-            [Obsolete("Use CrcOk instead.")]
-            public bool crc_ok { get { return CrcOk; } set { CrcOk = value; } }
-            [Obsolete("Use SlaveId instead.")]
-            public byte slave_id { get { return SlaveId; } set { SlaveId = value; } }
-            [Obsolete("Use IsException instead.")]
-            public bool ex_resp { get { return IsException; } set { IsException = value; } }
-            [Obsolete("Use ExceptionCode instead.")]
-            public byte ex_code { get { return ExceptionCode; } set { ExceptionCode = value; } }
-            [Obsolete("Use Bits instead.")]
-            public bool[] bits { get { return Bits; } set { Bits = value; } }
-            [Obsolete("Use Registers instead.")]
-            public ushort[] registers { get { return Registers; } set { Registers = value; } }
-        }
-
-        private static void DecodeReadData(ReadResponseArgs response, byte function, ushort requestedQuantity = 0)
-        {
-            byte[] frame = response.Frame;
-            if (response.IsException || frame == null || frame.Length < 5)
-                return;
-
-            int byteCount = frame[2];
-            if (function == 0x01 || function == 0x02)
-            {
-                int bitCount = requestedQuantity > 0 ? requestedQuantity : byteCount * 8;
-                response.Bits = new bool[bitCount];
-                for (int i = 0; i < response.Bits.Length; i++)
-                    response.Bits[i] = (frame[3 + (i / 8)] & (1 << (i % 8))) != 0;
-            }
-            else if (function == 0x03 || function == 0x04)
-            {
-                response.Registers = new ushort[byteCount / 2];
-                for (int i = 0; i < response.Registers.Length; i++)
-                    response.Registers[i] = (ushort)((frame[3 + i * 2] << 8) | frame[4 + i * 2]);
-            }
-        }
+        public bool IsOpen { get { return port.IsOpen; } }
+        public string PortName { get { return port.PortName; } }
+        public int BytesToRead { get { return port.BytesToRead; } }
+        public void Open() { port.Open(); }
         public void Close()
         {
-            SerialPort port = Port;
+            IModbusTransport currentTransport = transport;
             Exception transportException = null;
 
             try
             {
-                if (port != null)
-                    port.DataReceived -= serial_rx;
+                if (currentTransport != null)
+                    currentTransport.DataReceived -= serial_rx;
             }
             catch (Exception ex)
             {
@@ -208,12 +68,12 @@ namespace ModBusLIB
 
             try
             {
-                if (port != null)
+                if (currentTransport != null)
                 {
                     try
                     {
-                        if (port.IsOpen)
-                            port.Close();
+                        if (currentTransport.IsOpen)
+                            currentTransport.Close();
                     }
                     catch (Exception ex)
                     {
@@ -224,7 +84,7 @@ namespace ModBusLIB
                     {
                         try
                         {
-                            port.Dispose();
+                            currentTransport.Dispose();
                         }
                         catch (Exception ex)
                         {
@@ -236,8 +96,8 @@ namespace ModBusLIB
             }
             finally
             {
-                if (ReferenceEquals(Port, port))
-                    Port = null;
+                if (ReferenceEquals(transport, currentTransport))
+                    transport = null;
                 microtimer.Stop();
                 microtimer.Reset();
                 us_timer = null;
@@ -248,30 +108,30 @@ namespace ModBusLIB
         }
         public void Initialize(string portName, int baudRate=115200, Parity parity=Parity.Even)
         {
-            if (us_timer_flag || (Port != null && Port.IsOpen))
-                throw new InvalidOperationException("ModBus is already initialized. Call Close() before initializing again.");
-
             if (string.IsNullOrWhiteSpace(portName))
                 throw new ArgumentException("A serial port name is required.", nameof(portName));
             if (baudRate <= 0)
                 throw new ArgumentOutOfRangeException(nameof(baudRate));
 
-            StopBits stopBits;
-            if (parity == Parity.None) stopBits = StopBits.Two;
-            else stopBits = StopBits.One;
-            if (baudRate > 19200)
-            {
-                t3_5 = 1750;
-            }
-            else {
-                t3_5 = 38500000 / baudRate;
-            }
-            SerialPort newPort = new SerialPort(portName, baudRate, parity, 8, stopBits);
+            StopBits stopBits = parity == Parity.None ? StopBits.Two : StopBits.One;
+            InitializeTransport(new SerialPortTransport(portName, baudRate, parity, stopBits), baudRate);
+        }
+
+        internal void InitializeTransport(IModbusTransport newTransport, int baudRate)
+        {
+            if (newTransport == null)
+                throw new ArgumentNullException(nameof(newTransport));
+            if (baudRate <= 0)
+                throw new ArgumentOutOfRangeException(nameof(baudRate));
+            if (us_timer_flag || (transport != null && transport.IsOpen))
+                throw new InvalidOperationException("ModBus is already initialized. Call Close() before initializing again.");
+
+            t3_5 = baudRate > 19200 ? 1750 : 38500000 / baudRate;
             try
             {
-                newPort.DataReceived += serial_rx;
-                newPort.Open();
-                Port = newPort;
+                newTransport.DataReceived += serial_rx;
+                newTransport.Open();
+                transport = newTransport;
 
                 rx_buf = new byte[4096];
                 tx_buf = new byte[8];
@@ -292,15 +152,15 @@ namespace ModBusLIB
 
                 try
                 {
-                    newPort.DataReceived -= serial_rx;
-                    if (newPort.IsOpen)
-                        newPort.Close();
+                    newTransport.DataReceived -= serial_rx;
+                    if (newTransport.IsOpen)
+                        newTransport.Close();
                 }
                 finally
                 {
-                    newPort.Dispose();
-                    if (ReferenceEquals(Port, newPort))
-                        Port = null;
+                    newTransport.Dispose();
+                    if (ReferenceEquals(transport, newTransport))
+                        transport = null;
                     us_timer = null;
                     microtimer.Stop();
                     microtimer.Reset();
@@ -646,10 +506,10 @@ namespace ModBusLIB
                 bool sent = false;
                 try
                 {
-                    SerialPort port = Port;
-                    if (port != null && port.IsOpen)
+                    IModbusTransport currentTransport = transport;
+                    if (currentTransport != null && currentTransport.IsOpen)
                     {
-                        port.Write(retryFrame, 0, retryFrame.Length);
+                        currentTransport.Write(retryFrame, 0, retryFrame.Length);
                         sent = true;
                     }
                 }
@@ -684,28 +544,28 @@ namespace ModBusLIB
                 SafeInvoke(RequestTimeoutHandler, timeout);
         }
 
-        private void serial_rx(object sender, SerialDataReceivedEventArgs e)
+        private void serial_rx(object sender, EventArgs e)
         {
             try
             {
                 lock (rx_lock)
                 {
-                    if (Port == null || !Port.IsOpen)
+                    if (transport == null || !transport.IsOpen)
                         return;
 
                     new_packet = true;
-                    int length = Port.BytesToRead;
+                    int length = transport.BytesToRead;
                     for (int i = 0; i < length; i++)
                     {
                         if (rx_buf_index >= rx_buf.Length)
                         {
                             rx_buf_index = 0;
                             new_packet = false;
-                            Port.DiscardInBuffer();
+                            transport.DiscardInBuffer();
                             break;
                         }
 
-                        rx_buf[rx_buf_index++] = (byte)Port.ReadByte();
+                        rx_buf[rx_buf_index++] = (byte)transport.ReadByte();
                         last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
                     }
                 }

@@ -6,6 +6,35 @@ namespace ModBusLIB.Tests
 {
     internal static class Program
     {
+        private sealed class FakeTransport : IModbusTransport
+        {
+            private readonly System.Collections.Generic.Queue<byte> input = new System.Collections.Generic.Queue<byte>();
+            public event EventHandler DataReceived;
+            public bool IsOpen { get; private set; }
+            public string PortName { get { return "FAKE"; } }
+            public int BytesToRead { get { return input.Count; } }
+            public int WriteCount { get; private set; }
+            public bool FailWrites { get; set; }
+            public bool Disposed { get; private set; }
+
+            public void Open() { IsOpen = true; }
+            public void Close() { IsOpen = false; }
+            public void Dispose() { Disposed = true; IsOpen = false; }
+            public void Write(byte[] buffer, int offset, int count)
+            {
+                if (FailWrites) throw new System.IO.IOException("simulated write failure");
+                WriteCount++;
+            }
+            public int ReadByte() { return input.Dequeue(); }
+            public void DiscardInBuffer() { input.Clear(); }
+            public void Inject(params byte[] bytes)
+            {
+                foreach (byte value in bytes) input.Enqueue(value);
+                EventHandler handler = DataReceived;
+                if (handler != null) handler(this, EventArgs.Empty);
+            }
+        }
+
         private static int passed;
         private static int failed;
 
@@ -544,6 +573,40 @@ namespace ModBusLIB.Tests
                 "single-write response metadata reports quantity one");
         }
 
+        private static void TestTransportAbstraction()
+        {
+            var transport = new FakeTransport();
+            var bus = new ModBus { ResponseTimeoutMs = 1, MaxRetries = 1 };
+            bus.InitializeTransport(transport, 115200);
+            Assert(bus.IsOpen && bus.PortName == "FAKE", "controlled transport state is exposed without SerialPort access");
+
+            bus.ReadHoldingRegisters(1, 0, 1);
+            Assert(transport.WriteCount == 1, "initial request is written through transport abstraction");
+
+            Set(bus, "pending_since_ms", -1000L);
+            Invoke(bus, "CheckRequestTimeout");
+            Assert(transport.WriteCount == 2 && Get<int>(bus, "pending_retry_count") == 1,
+                "successful retry is deterministic through fake transport");
+
+            byte[] response = WithCrc(bus, 1, 3, 2, 0x12, 0x34);
+            int responses = 0;
+            bus.ReadHoldingRegistersResponseHandler += (sender, e) => responses++;
+            transport.Inject(response);
+            Set(bus, "last_rx_us", long.MinValue / 2);
+            Invoke(bus, "modbus_timer_Tick");
+            Assert(responses == 1, "injected RX frame is processed through transport abstraction");
+
+            bus.Close();
+            Assert(!bus.IsOpen && bus.PortName == null && transport.Disposed, "Close disposes and detaches transport");
+
+            var failedTransport = new FakeTransport { FailWrites = true };
+            var failedBus = new ModBus { ResponseTimeoutMs = 1, MaxRetries = 1 };
+            failedBus.InitializeTransport(failedTransport, 115200);
+            try { failedBus.ReadHoldingRegisters(1, 0, 1); } catch (System.IO.IOException) { }
+            Assert(!Get<bool>(failedBus, "request_pending"), "failed initial transport write rolls back pending request");
+            failedBus.Close();
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -562,6 +625,7 @@ namespace ModBusLIB.Tests
             TestRequestedCoilQuantityTrimsPaddingBits();
             TestCallbackExceptionDiagnostics();
             TestResponseMetadataAndFrameIsolation();
+            TestTransportAbstraction();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);

@@ -242,7 +242,8 @@ int crcErrors = bus.CrcFailCount;
 
 | Üye | Tip | Amaç |
 | --- | --- | --- |
-| `Port` | `SerialPort` | Aktif seri port nesnesi. Setter private'tır. |
+| `IsOpen` | `bool` | Dahili seri transport'un açık olup olmadığını gösterir. |
+| `PortName` | `string` | Aktif seri port adı; kapalıyken `null`. |
 | `CrcFailCount` | `int` | CRC hatası nedeniyle reddedilen alınmış frame sayısı. |
 | `ResponseTimeoutMs` | `int` | Bir request denemesinin retry/timeout işleminden önce bekleyeceği süre. Varsayılan: 1000 ms. |
 | `MaxRetries` | `int` | İlk denemeden sonra yapılacak yeniden gönderim sayısı. Varsayılan: 0. |
@@ -265,7 +266,7 @@ bus.Initialize("COM3", 19200, Parity.None);
 void Initialize(string portName, int baudRate = 115200, Parity parity = Parity.Even)
 ```
 
-Port bu çağrı sırasında açılır. 8 data bit kullanılır; Even/Odd parity ile bir stop biti, `Parity.None` ile iki stop biti kullanılır.
+Port bu çağrı sırasında açılır. Alttaki `SerialPort` bilerek internal tutulur; transport'u dışarıdan değiştirmek yerine bağlantı durumu için `IsOpen` ve `PortName` kullanılır. 8 data bit kullanılır; Even/Odd parity ile bir stop biti, `Parity.None` ile iki stop biti kullanılır.
 
 </details>
 
@@ -614,7 +615,7 @@ Bu nedenle response ve timeout event handler'larının UI thread üzerinde çal�
 
 GitHub Actions, Windows üzerinde .NET Framework 4.8 kütüphanesini ve test executable'ını derler ve `master` branch'ine yapılan push'larda regression testlerini çalıştırır.
 
-Otomatik test paketi fiziksel Modbus donanımı gerektirmeden protokol mantığını doğrular. Seri port sürücüsü davranışı, RS-485 direction control, elektriksel katman ve cihaza özgü zamanlama davranışları gerçek donanım üzerinde ayrıca test edilmelidir.
+Otomatik test paketi fiziksel Modbus donanımı gerektirmeden protokol mantığını doğrular. Seri I/O internal bir transport abstraction arkasındadır; request write, retry, enjekte edilen RX frame, başarısız write ve transport dispose davranışları deterministic olarak test edilir. Seri port sürücüsü davranışı, RS-485 direction control, elektriksel katman ve cihaza özgü zamanlama davranışları gerçek donanım üzerinde ayrıca test edilmelidir.
 
 ## Proje yapısı
 
