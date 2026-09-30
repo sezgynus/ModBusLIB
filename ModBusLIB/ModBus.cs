@@ -9,7 +9,8 @@ namespace ModBusLIB
     public class ModBus
     {   
         public SerialPort Port { get; private set; }
-        public int CrcFailCount { get; private set; }
+        private int crcFailCount;
+        public int CrcFailCount { get { return Volatile.Read(ref crcFailCount); } }
         private long t3_5;
         private Stopwatch microtimer = new Stopwatch();
         private byte[] rx_buf, tx_buf;
@@ -60,6 +61,19 @@ namespace ModBusLIB
         public event EventHandler<ReadResponseArgs> WriteSingleRegisterResponseHandler;
         public event EventHandler<ReadResponseArgs> WriteMultipleRegistersResponseHandler;
         public event EventHandler<RequestTimeoutArgs> RequestTimeoutHandler;
+        public event EventHandler<CallbackExceptionArgs> CallbackExceptionHandler;
+
+        public sealed class CallbackExceptionArgs : EventArgs
+        {
+            public Exception Exception { get; private set; }
+            public string CallbackName { get; private set; }
+
+            public CallbackExceptionArgs(Exception exception, string callbackName)
+            {
+                Exception = exception;
+                CallbackName = callbackName;
+            }
+        }
 
         public sealed class RequestTimeoutArgs : EventArgs
         {
@@ -152,6 +166,10 @@ namespace ModBusLIB
         }
         public void Close()
         {
+            SerialPort port = Port;
+            if (port != null)
+                port.DataReceived -= serial_rx;
+
             us_timer_flag = false;
             if (us_timer != null && us_timer.IsAlive && Thread.CurrentThread != us_timer)
                 us_timer.Join(2000);
@@ -170,13 +188,13 @@ namespace ModBusLIB
                 pending_since_ms = 0;
             }
 
-            if (Port != null)
+            if (port != null)
             {
-                Port.DataReceived -= serial_rx;
-                if (Port.IsOpen)
-                    Port.Close();
-                Port.Dispose();
-                Port = null;
+                if (port.IsOpen)
+                    port.Close();
+                port.Dispose();
+                if (ReferenceEquals(Port, port))
+                    Port = null;
             }
 
             microtimer.Stop();
@@ -689,6 +707,26 @@ namespace ModBusLIB
             ProcessPacket(packet);
         }
 
+        private void ReportCallbackException(Exception exception, string callbackName)
+        {
+            EventHandler<CallbackExceptionArgs> handler = CallbackExceptionHandler;
+            if (handler == null)
+                return;
+
+            var args = new CallbackExceptionArgs(exception, callbackName);
+            foreach (EventHandler<CallbackExceptionArgs> subscriber in handler.GetInvocationList())
+            {
+                try
+                {
+                    subscriber(this, args);
+                }
+                catch
+                {
+                    // Diagnostic callbacks must never terminate the Modbus worker thread.
+                }
+            }
+        }
+
         private void SafeInvoke(EventHandler<RequestTimeoutArgs> handler, RequestTimeoutArgs timeout)
         {
             if (handler == null)
@@ -700,9 +738,9 @@ namespace ModBusLIB
                 {
                     subscriber(this, timeout);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Consumer callback failures must not terminate the Modbus worker thread.
+                    ReportCallbackException(ex, nameof(RequestTimeoutHandler));
                 }
             }
         }
@@ -718,11 +756,24 @@ namespace ModBusLIB
                 {
                     subscriber(this, response);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Consumer callback failures must not terminate the Modbus worker thread.
+                    ReportCallbackException(ex, GetResponseCallbackName(handler));
                 }
             }
+        }
+
+        private string GetResponseCallbackName(EventHandler<ReadResponseArgs> handler)
+        {
+            if (handler == ReadCoilsResponseHandler) return nameof(ReadCoilsResponseHandler);
+            if (handler == ReadDiscreteInputsResponseHandler) return nameof(ReadDiscreteInputsResponseHandler);
+            if (handler == ReadHoldingRegistersResponseHandler) return nameof(ReadHoldingRegistersResponseHandler);
+            if (handler == ReadInputRegistersResponseHandler) return nameof(ReadInputRegistersResponseHandler);
+            if (handler == WriteSingleCoilResponseHandler) return nameof(WriteSingleCoilResponseHandler);
+            if (handler == WriteMultipleCoilsResponseHandler) return nameof(WriteMultipleCoilsResponseHandler);
+            if (handler == WriteSingleRegisterResponseHandler) return nameof(WriteSingleRegisterResponseHandler);
+            if (handler == WriteMultipleRegistersResponseHandler) return nameof(WriteMultipleRegistersResponseHandler);
+            return "ResponseHandler";
         }
 
         private void ProcessPacket(byte[] packet)
@@ -735,7 +786,7 @@ namespace ModBusLIB
             byte crcHigh = (byte)(calculatedCrc >> 8);
             if (packet[packet.Length - 2] != crcLow || packet[packet.Length - 1] != crcHigh)
             {
-                CrcFailCount++;
+                Interlocked.Increment(ref crcFailCount);
                 return;
             }
 

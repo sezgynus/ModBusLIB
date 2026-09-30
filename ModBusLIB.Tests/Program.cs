@@ -487,6 +487,29 @@ namespace ModBusLIB.Tests
             Assert(discreteBitCount == 9, "FC02 decoded bits match requested quantity instead of padded byte size");
         }
 
+
+        private static void TestCallbackExceptionDiagnostics()
+        {
+            var bus = new ModBus();
+            int diagnostics = 0;
+            string callbackName = null;
+            Exception captured = null;
+            bus.CallbackExceptionHandler += (sender, e) =>
+            {
+                diagnostics++;
+                callbackName = e.CallbackName;
+                captured = e.Exception;
+            };
+            bus.ReadHoldingRegistersResponseHandler += (sender, e) => { throw new InvalidOperationException("consumer failure"); };
+
+            byte[] request = WithCrc(bus, 1, 3, 0, 0, 0, 1);
+            PreparePending(bus, 1, 3, request);
+            Invoke(bus, "ProcessPacket", WithCrc(bus, 1, 3, 2, 0, 1));
+
+            Assert(diagnostics == 1 && callbackName == "ReadHoldingRegistersResponseHandler" &&
+                captured is InvalidOperationException, "response callback exceptions are exposed through diagnostics");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -503,6 +526,7 @@ namespace ModBusLIB.Tests
             TestResponseHandlerExceptionIsolation();
             TestTimeoutHandlerExceptionIsolation();
             TestRequestedCoilQuantityTrimsPaddingBits();
+            TestCallbackExceptionDiagnostics();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
