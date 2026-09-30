@@ -122,6 +122,14 @@ namespace ModBusLIB
                 rx_buf_index = 0;
             }
 
+            lock (request_lock)
+            {
+                request_pending = false;
+                pending_frame = null;
+                pending_retry_count = 0;
+                pending_since_ms = 0;
+            }
+
             if (Port != null && Port.IsOpen)
                 Port.Close();
 

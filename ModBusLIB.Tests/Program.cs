@@ -300,6 +300,21 @@ namespace ModBusLIB.Tests
             Assert(!Get<bool>(bus, "request_pending"), "closed-port request does not become pending");
         }
 
+
+        private static void TestCloseClearsPendingRequest()
+        {
+            var bus = new ModBus();
+            Set(bus, "request_pending", true);
+            Set(bus, "pending_frame", new byte[] { 1, 3, 0, 0, 0, 1, 0, 0 });
+            Set(bus, "pending_retry_count", 2);
+            Set(bus, "pending_since_ms", 123L);
+            bus.Close();
+            Assert(!Get<bool>(bus, "request_pending"), "Close clears pending request flag");
+            Assert(Get<byte[]>(bus, "pending_frame") == null, "Close clears pending request frame");
+            Assert(Get<int>(bus, "pending_retry_count") == 0, "Close clears retry count");
+            Assert(Get<long>(bus, "pending_since_ms") == 0L, "Close clears pending timestamp");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -308,6 +323,7 @@ namespace ModBusLIB.Tests
             TestLimits();
             TestAdditionalProtocolCoverage();
             TestClosedPortRequestRejected();
+            TestCloseClearsPendingRequest();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
