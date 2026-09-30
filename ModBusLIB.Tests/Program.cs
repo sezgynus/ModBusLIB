@@ -134,7 +134,7 @@ namespace ModBusLIB.Tests
 
         private static bool Expected(ModBus bus, byte[] frame)
         {
-            return (bool)Invoke(bus, "IsExpectedResponse", frame);
+            return (bool)Invoke(bus, "TryCompleteExpectedResponse", frame);
         }
 
         private static void TestResponseValidation()
