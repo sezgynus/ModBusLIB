@@ -180,6 +180,9 @@ Desteklenen her fonksiyon kodunun karşılık gelen bir cevap olayı vardır:
 | `Frame` | Slave adresi ve CRC dahil alınan tam RTU çerçevesi |
 | `CrcOk` | Uygulamaya iletilen cevabın CRC doğrulama sonucu |
 | `SlaveId` | Cevaptaki slave adresi |
+| `Function` | Orijinal Modbus fonksiyon kodu |
+| `StartAddress` | Eşleşen request'ten alınan başlangıç adresi |
+| `RequestedQuantity` | İstenen bit/register adedi; FC05/FC06 için 1 |
 | `IsException` | Modbus exception cevabında `true` |
 | `ExceptionCode` | Modbus exception kodu |
 | `Bits` | FC01/FC02 cevapları için çözülmüş bit değerleri |
@@ -299,7 +302,7 @@ bus.ReadCoilsResponseHandler += (sender, e) =>
 bus.ReadCoils(1, 0, 8);
 ```
 
-İmza: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Adet: 1–2000 coil. Coil verisi LSB-first olarak `ReadResponseArgs.bits` dizisine çözülür. İstenen adet 8'in katı değilse son byte padding bitleri içerir; bu bitler önemliyse iterasyonda request'teki `count` değerini sınır olarak kullanın.
+İmza: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Adet: 1–2000 coil. Coil verisi LSB-first olarak `ReadResponseArgs.Bits` dizisine çözülür. `Bits.Length` tam olarak istenen adede eşittir; son RTU veri byte'ındaki padding bitleri dışarı verilmez.
 
 </details>
 
@@ -466,7 +469,7 @@ bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 };
 ```
 
-Tarihsel isminden farklı olarak `Frame`, slave adresi ve CRC dahil alınan tam RTU frame'ini içerir. CRC'si geçersiz frame'ler event oluşturulmadan atıldığı için uygulamaya iletilen normal cevaplarda `crc_ok == true` olur. `Bits` yalnız başarılı FC01/FC02 okumalarında, `Registers` ise yalnız başarılı FC03/FC04 okumalarında doldurulur.
+Tarihsel isminden farklı olarak `Frame`, slave adresi ve CRC dahil alınan tam RTU frame'ini içerir. Her `Frame` erişimi korumalı bir kopya döndürür; kullanıcı tarafındaki değişiklikler kütüphanenin tuttuğu response snapshot'ını değiştiremez. `Function`, `StartAddress` ve `RequestedQuantity` cevabı tamamlanan request ile ilişkilendirir. CRC'si geçersiz frame'ler event oluşturulmadan atıldığı için uygulamaya iletilen normal cevaplarda `crc_ok == true` olur. `Bits` yalnız başarılı FC01/FC02 okumalarında, `Registers` ise yalnız başarılı FC03/FC04 okumalarında doldurulur.
 
 </details>
 
@@ -510,6 +513,22 @@ bus.RequestTimeoutHandler += (sender, e) =>
 ```
 
 `RequestTimeoutArgs`; `SlaveId`, `Function` ve `Retries` alanlarını sunar. Event yalnız ilk deneme ve ayarlanan tüm retry'lar timeout olduktan sonra tetiklenir.
+
+</details>
+
+<details>
+<summary><strong>CallbackExceptionHandler</strong></summary>
+
+Uygulamanın response ve timeout callback'leri Modbus worker'dan izole edilir. Bir callback exception atarsa worker çalışmaya devam eder ve hata `CallbackExceptionHandler` üzerinden bildirilir:
+
+```csharp
+bus.CallbackExceptionHandler += (sender, e) =>
+{
+    Console.WriteLine($"Callback {e.CallbackName} hata verdi: {e.Exception}");
+};
+```
+
+`CallbackExceptionArgs`, `CallbackName` ve `Exception` alanlarını sunar. Diagnostic handler'ın kendi exception'ları da worker'ı sonlandırmaması için tutulur.
 
 </details>
 
@@ -610,6 +629,7 @@ ModBusLIB.sln
 │   └── Program.cs
 └── .github/workflows/
     ├── modbus-tests.yml
+    ├── release.yml
     └── sign-commits.yml
 ```
 

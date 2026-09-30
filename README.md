@@ -180,6 +180,9 @@ Each supported function code has a corresponding response event:
 | `Frame` | Complete received RTU frame, including slave address and CRC |
 | `CrcOk` | CRC validation result for a dispatched response |
 | `SlaveId` | Slave address from the response |
+| `Function` | Original Modbus function code |
+| `StartAddress` | Start address captured from the matching request |
+| `RequestedQuantity` | Requested bit/register quantity; 1 for FC05/FC06 |
 | `IsException` | `true` for a Modbus exception response |
 | `ExceptionCode` | Modbus exception code |
 | `Bits` | Decoded bit values for FC01/FC02 responses |
@@ -300,7 +303,7 @@ bus.ReadCoilsResponseHandler += (sender, e) =>
 bus.ReadCoils(1, 0, 8);
 ```
 
-Signature: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Quantity: 1–2000 coils. Coil data is decoded LSB-first into `ReadResponseArgs.bits`. The final byte can contain padding bits when the requested quantity is not a multiple of eight; use the requested `count` when iterating if those padding bits matter.
+Signature: `void ReadCoils(byte slave_id, ushort start, ushort count)`. Quantity: 1–2000 coils. Coil data is decoded LSB-first into `ReadResponseArgs.Bits`. `Bits.Length` exactly matches the requested quantity; padding bits in the final RTU data byte are not exposed.
 
 </details>
 
@@ -467,7 +470,7 @@ bus.ReadHoldingRegistersResponseHandler += (sender, e) =>
 };
 ```
 
-Despite its historical name, `Frame` contains the complete received RTU frame, including slave address and CRC. Invalid-CRC frames are discarded before an event is raised, so normally dispatched responses have `crc_ok == true`. `Bits` is populated only for successful FC01/FC02 reads, and `Registers` only for successful FC03/FC04 reads.
+Despite its historical name, `Frame` contains the complete received RTU frame, including slave address and CRC. Each `Frame` access returns a defensive copy, so consumer mutations cannot alter the response snapshot held by the library. `Function`, `StartAddress`, and `RequestedQuantity` correlate the response with the completed request. Invalid-CRC frames are discarded before an event is raised, so normally dispatched responses have `crc_ok == true`. `Bits` is populated only for successful FC01/FC02 reads, and `Registers` only for successful FC03/FC04 reads.
 
 </details>
 
@@ -611,6 +614,7 @@ ModBusLIB.sln
 │   └── Program.cs
 └── .github/workflows/
     ├── modbus-tests.yml
+    ├── release.yml
     └── sign-commits.yml
 ```
 
