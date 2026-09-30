@@ -31,6 +31,11 @@ namespace ModBusLIB
         private bool request_pending;
         private byte pending_slave_id;
         private byte pending_function;
+        private byte[] pending_frame;
+        private long pending_since_ms;
+        private int pending_retry_count;
+        public int ResponseTimeoutMs { get; set; } = 1000;
+        public int MaxRetries { get; set; } = 0;
 
         public event EventHandler<ReadResponseArgs> ReadCoilsResponseHandler;
         public event EventHandler<ReadResponseArgs> ReadDiscreteInputsResponseHandler;
@@ -40,6 +45,14 @@ namespace ModBusLIB
         public event EventHandler<ReadResponseArgs> WriteMultipleCoilsResponseHandler;
         public event EventHandler<ReadResponseArgs> WriteSingleRegisterResponseHandler;
         public event EventHandler<ReadResponseArgs> WriteMultipleRegistersResponseHandler;
+        public event EventHandler<RequestTimeoutArgs> RequestTimeoutHandler;
+
+        public class RequestTimeoutArgs : EventArgs
+        {
+            public byte slave_id { get; set; }
+            public byte function { get; set; }
+            public int retries { get; set; }
+        }
 
         private void SendRequest(byte slaveId, byte function, int packetSize)
         {
@@ -51,6 +64,10 @@ namespace ModBusLIB
                 request_pending = true;
                 pending_slave_id = slaveId;
                 pending_function = function;
+                pending_frame = new byte[packetSize];
+                Array.Copy(tx_buf, pending_frame, packetSize);
+                pending_since_ms = microtimer.ElapsedMilliseconds;
+                pending_retry_count = 0;
                 try
                 {
                     if (Port.IsOpen & (Port != null))
@@ -307,9 +324,42 @@ namespace ModBusLIB
         {
             while (us_timer_flag)
             {
+                CheckRequestTimeout();
                 modbus_timer_Tick();
                 Thread.Sleep(1);
             }
+        }
+
+        private void CheckRequestTimeout()
+        {
+            RequestTimeoutArgs timeout = null;
+            lock (request_lock)
+            {
+                if (!request_pending || ResponseTimeoutMs <= 0)
+                    return;
+
+                if ((microtimer.ElapsedMilliseconds - pending_since_ms) < ResponseTimeoutMs)
+                    return;
+
+                if (pending_retry_count < MaxRetries)
+                {
+                    if (Port != null && Port.IsOpen)
+                        Port.Write(pending_frame, 0, pending_frame.Length);
+                    pending_retry_count++;
+                    pending_since_ms = microtimer.ElapsedMilliseconds;
+                    return;
+                }
+
+                timeout = new RequestTimeoutArgs
+                {
+                    slave_id = pending_slave_id,
+                    function = pending_function,
+                    retries = pending_retry_count
+                };
+                request_pending = false;
+                pending_frame = null;
+            }
+            RequestTimeoutHandler?.Invoke(this, timeout);
         }
 
         private void serial_rx(object sender, SerialDataReceivedEventArgs e)
