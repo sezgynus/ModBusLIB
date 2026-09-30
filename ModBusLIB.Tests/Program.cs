@@ -126,7 +126,7 @@ namespace ModBusLIB.Tests
                 pdu = new byte[] { 1, 3, 4, 0x12, 0x34, 0xAB, 0xCD, 0, 0 },
                 ex_resp = false
             };
-            InvokeStatic("DecodeReadData", registerResponse, (byte)0x03);
+            InvokeStatic("DecodeReadData", registerResponse, (byte)0x03, (ushort)0);
             Assert(registerResponse.Registers.Length == 2, "register response decoded count");
             Assert(registerResponse.Registers[0] == 0x1234 && registerResponse.Registers[1] == 0xABCD,
                 "register response decoded as ushort big-endian");
@@ -136,7 +136,7 @@ namespace ModBusLIB.Tests
                 pdu = new byte[] { 1, 1, 1, 0x05, 0, 0 },
                 ex_resp = false
             };
-            InvokeStatic("DecodeReadData", coilResponse, (byte)0x01);
+            InvokeStatic("DecodeReadData", coilResponse, (byte)0x01, (ushort)0);
             Assert(coilResponse.Bits[0] && !coilResponse.Bits[1] && coilResponse.Bits[2],
                 "coil bits decoded LSB-first");
         }
@@ -261,7 +261,7 @@ namespace ModBusLIB.Tests
                 pdu = new byte[] { 1, 2, 1, 0xA5, 0, 0 },
                 ex_resp = false
             };
-            InvokeStatic("DecodeReadData", discrete, (byte)0x02);
+            InvokeStatic("DecodeReadData", discrete, (byte)0x02, (ushort)0);
             Assert(discrete.Bits.Length == 8 && discrete.Bits[0] && !discrete.Bits[1] && discrete.Bits[2],
                 "FC02 discrete inputs decoded LSB-first");
 
@@ -270,7 +270,7 @@ namespace ModBusLIB.Tests
                 pdu = new byte[] { 1, 4, 2, 0xBE, 0xEF, 0, 0 },
                 ex_resp = false
             };
-            InvokeStatic("DecodeReadData", inputRegs, (byte)0x04);
+            InvokeStatic("DecodeReadData", inputRegs, (byte)0x04, (ushort)0);
             Assert(inputRegs.Registers.Length == 1 && inputRegs.Registers[0] == 0xBEEF,
                 "FC04 input register decoded big-endian");
 
@@ -279,7 +279,7 @@ namespace ModBusLIB.Tests
                 pdu = new byte[] { 1, 0x83, 2, 0, 0 },
                 ex_resp = true
             };
-            InvokeStatic("DecodeReadData", exceptionData, (byte)0x03);
+            InvokeStatic("DecodeReadData", exceptionData, (byte)0x03, (ushort)0);
             Assert(exceptionData.Registers == null && exceptionData.Bits == null,
                 "exception response is not decoded as normal data");
 
