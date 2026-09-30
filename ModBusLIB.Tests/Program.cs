@@ -15,11 +15,27 @@ namespace ModBusLIB.Tests
             public int BytesToRead { get { return input.Count; } }
             public int WriteCount { get; private set; }
             public bool FailWrites { get; set; }
+            public bool FailOpen { get; set; }
+            public bool FailClose { get; set; }
+            public bool FailDispose { get; set; }
             public bool Disposed { get; private set; }
 
-            public void Open() { IsOpen = true; }
-            public void Close() { IsOpen = false; }
-            public void Dispose() { Disposed = true; IsOpen = false; }
+            public void Open()
+            {
+                if (FailOpen) throw new System.IO.IOException("simulated open failure");
+                IsOpen = true;
+            }
+            public void Close()
+            {
+                IsOpen = false;
+                if (FailClose) throw new System.IO.IOException("simulated close failure");
+            }
+            public void Dispose()
+            {
+                Disposed = true;
+                IsOpen = false;
+                if (FailDispose) throw new System.IO.IOException("simulated dispose failure");
+            }
             public void Write(byte[] buffer, int offset, int count)
             {
                 if (FailWrites) throw new System.IO.IOException("simulated write failure");
@@ -607,6 +623,35 @@ namespace ModBusLIB.Tests
             failedBus.Close();
         }
 
+        private static void TestTransportLifecycleFailures()
+        {
+            var openTransport = new FakeTransport { FailOpen = true };
+            var openBus = new ModBus();
+            bool openFailed = false;
+            try { openBus.InitializeTransport(openTransport, 115200); }
+            catch (System.IO.IOException) { openFailed = true; }
+            Assert(openFailed && !openBus.IsOpen && openBus.PortName == null && openTransport.Disposed,
+                "Initialize rollback disposes transport after open failure");
+
+            var closeTransport = new FakeTransport { FailClose = true };
+            var closeBus = new ModBus();
+            closeBus.InitializeTransport(closeTransport, 115200);
+            bool closeFailed = false;
+            try { closeBus.Close(); }
+            catch (System.IO.IOException) { closeFailed = true; }
+            Assert(closeFailed && !closeBus.IsOpen && closeBus.PortName == null && closeTransport.Disposed,
+                "Close completes cleanup and rethrows transport close failure");
+
+            var disposeTransport = new FakeTransport { FailDispose = true };
+            var disposeBus = new ModBus();
+            disposeBus.InitializeTransport(disposeTransport, 115200);
+            bool disposeFailed = false;
+            try { disposeBus.Close(); }
+            catch (System.IO.IOException) { disposeFailed = true; }
+            Assert(disposeFailed && !disposeBus.IsOpen && disposeBus.PortName == null && disposeTransport.Disposed,
+                "Close clears library state when transport dispose fails");
+        }
+
         private static int Main()
         {
             TestCrcAndSerialization();
@@ -626,6 +671,7 @@ namespace ModBusLIB.Tests
             TestCallbackExceptionDiagnostics();
             TestResponseMetadataAndFrameIsolation();
             TestTransportAbstraction();
+            TestTransportLifecycleFailures();
 
             Console.WriteLine();
             Console.WriteLine("Passed: " + passed + ", Failed: " + failed);
