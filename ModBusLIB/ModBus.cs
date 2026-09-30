@@ -66,7 +66,7 @@ namespace ModBusLIB
                 pending_retry_count = 0;
                 try
                 {
-                    if (Port.IsOpen & (Port != null))
+                    if (Port != null && Port.IsOpen)
                         Port.Write(tx_buf, 0, packetSize);
                 }
                 catch
@@ -159,22 +159,22 @@ namespace ModBusLIB
         public void ReadCoils(byte slave_id, ushort start, ushort count)//0x01
         {
             modbus_read_serializer(0x01, slave_id, start, count);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, 8);
+            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void ReadDiscreteInputs(byte slave_id, ushort start, ushort count)//0x02
         {
             modbus_read_serializer(0x02, slave_id, start, count);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, 8);
+            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void ReadHoldingRegisters(byte slave_id, ushort start, ushort count)//0x03
         {
             modbus_read_serializer(0x03, slave_id, start, count);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, 8);
+            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void ReadInputRegisters(byte slave_id, ushort start, ushort count)//0x04
         {
             modbus_read_serializer(0x04, slave_id, start, count);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, 8);
+            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, 8);
         }
         public void WriteSingleCoil(byte slave_id, ushort adress, bool coil_value)//0x05
         {
@@ -197,7 +197,7 @@ namespace ModBusLIB
         {
             int packet_size;
             packet_size=modbus_write_serializer(0x0F, slave_id, start, count, pdata);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, packet_size);
+            if (Port != null && Port.IsOpen) Port.Write(tx_buf, 0, packet_size);
             return packet_size;
         }
         public int WriteSingleRegister(byte slave_id, ushort adress, ushort udata)//0x06
@@ -440,7 +440,7 @@ namespace ModBusLIB
                     Port.DiscardInBuffer();
                     break;
                 }
-                if (Port.IsOpen & (Port != null)) rx_buf[rx_buf_index] = (byte)Port.ReadByte();
+                if (Port != null && Port.IsOpen) rx_buf[rx_buf_index] = (byte)Port.ReadByte();
                 rx_buf_index++;
                 last_rx_us = (long)(((double)microtimer.ElapsedTicks / Stopwatch.Frequency) * 1000000);
             }
