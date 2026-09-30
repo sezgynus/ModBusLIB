@@ -27,6 +27,10 @@ namespace ModBusLIB
         private long last_rx_us;
         private Thread us_timer;
         private readonly object rx_lock = new object();
+        private readonly object request_lock = new object();
+        private bool request_pending;
+        private byte pending_slave_id;
+        private byte pending_function;
 
         public event EventHandler<ReadResponseArgs> ReadCoilsResponseHandler;
         public event EventHandler<ReadResponseArgs> ReadDiscreteInputsResponseHandler;
@@ -36,6 +40,29 @@ namespace ModBusLIB
         public event EventHandler<ReadResponseArgs> WriteMultipleCoilsResponseHandler;
         public event EventHandler<ReadResponseArgs> WriteSingleRegisterResponseHandler;
         public event EventHandler<ReadResponseArgs> WriteMultipleRegistersResponseHandler;
+
+        private void SendRequest(byte slaveId, byte function, int packetSize)
+        {
+            lock (request_lock)
+            {
+                if (request_pending)
+                    throw new InvalidOperationException("A Modbus request is already awaiting a response.");
+
+                request_pending = true;
+                pending_slave_id = slaveId;
+                pending_function = function;
+                try
+                {
+                    if (Port.IsOpen & (Port != null))
+                        Port.Write(tx_buf, 0, packetSize);
+                }
+                catch
+                {
+                    request_pending = false;
+                    throw;
+                }
+            }
+        }
         public class ReadResponseArgs : EventArgs
         {
             public byte[] pdu { get; set; }
@@ -120,7 +147,7 @@ namespace ModBusLIB
                 value[1] = 0x00;
             }
             packet_size=modbus_write_serializer(0x05, slave_id, adress, 0, value);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, packet_size);
+            SendRequest(slave_id, 0x05, packet_size);
         }
         public int WriteMultipleCoils(byte slave_id, ushort start, ushort count,byte[] pdata)//0x15
         {
@@ -134,14 +161,14 @@ namespace ModBusLIB
             int packet_size;
             ushort[] udat = { udata };
             packet_size = modbus_write_serializer(0x06, slave_id, adress, 0, null ,udat);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, packet_size);
+            SendRequest(slave_id, 0x06, packet_size);
             return packet_size;
         }
         public int WriteMultipleRegisters(byte slave_id, ushort start, ushort count, ushort[] udata)//0x16
         {
             int packet_size;
             packet_size = modbus_write_serializer(0x10, slave_id, start, count, null, udata);
-            if (Port.IsOpen & (Port != null)) Port.Write(tx_buf, 0, packet_size);
+            SendRequest(slave_id, 0x10, packet_size);
             return packet_size;
         }
 
@@ -341,6 +368,15 @@ namespace ModBusLIB
                             {
                                 crc_okk = false;
                                 crc_fail_count++;
+                            }
+
+                            if (crc_okk)
+                            {
+                                lock (request_lock)
+                                {
+                                    if (request_pending && packet[0] == pending_slave_id && (packet[1] & 0x7F) == pending_function)
+                                        request_pending = false;
+                                }
                             }
 
                             if ((packet[1] & 0x7F) == 0x01)
