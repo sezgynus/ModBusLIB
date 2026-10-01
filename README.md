@@ -2,6 +2,13 @@
 
 [English](README.md) | [Türkçe](README-tr.md)
 
+[![ModBusLIB Tests](https://github.com/sezgynus/ModBusLIB/actions/workflows/modbus-tests.yml/badge.svg?branch=master)](https://github.com/sezgynus/ModBusLIB/actions/workflows/modbus-tests.yml)
+[![Latest Release](https://img.shields.io/github/v/release/sezgynus/ModBusLIB?sort=semver)](https://github.com/sezgynus/ModBusLIB/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/sezgynus/ModBusLIB)](LICENSE)
+[![.NET Framework 4.8](https://img.shields.io/badge/.NET%20Framework-4.8-512BD4)](https://dotnet.microsoft.com/)
+[![C%23](https://img.shields.io/badge/C%23-library-239120)](https://learn.microsoft.com/dotnet/csharp/)
+[![Modbus RTU](https://img.shields.io/badge/Modbus-RTU-blue)](https://modbus.org/)
+
 A lightweight Modbus RTU master library for C# applications targeting .NET Framework 4.8. ModBusLIB builds and validates RTU frames, communicates through `System.IO.Ports.SerialPort`, dispatches typed response events, and provides configurable request timeouts and retries without external NuGet dependencies.
 
 ## Features

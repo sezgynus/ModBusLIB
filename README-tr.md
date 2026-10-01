@@ -2,6 +2,13 @@
 
 [English](README.md) | [Türkçe](README-tr.md)
 
+[![ModBusLIB Tests](https://github.com/sezgynus/ModBusLIB/actions/workflows/modbus-tests.yml/badge.svg?branch=master)](https://github.com/sezgynus/ModBusLIB/actions/workflows/modbus-tests.yml)
+[![Latest Release](https://img.shields.io/github/v/release/sezgynus/ModBusLIB?sort=semver)](https://github.com/sezgynus/ModBusLIB/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/sezgynus/ModBusLIB)](LICENSE)
+[![.NET Framework 4.8](https://img.shields.io/badge/.NET%20Framework-4.8-512BD4)](https://dotnet.microsoft.com/)
+[![C%23](https://img.shields.io/badge/C%23-library-239120)](https://learn.microsoft.com/dotnet/csharp/)
+[![Modbus RTU](https://img.shields.io/badge/Modbus-RTU-blue)](https://modbus.org/)
+
 .NET Framework 4.8 hedefleyen C# uygulamaları için hafif bir Modbus RTU master kütüphanesi. ModBusLIB, RTU çerçevelerini oluşturup doğrular, `System.IO.Ports.SerialPort` üzerinden haberleşir, cevapları tiplenmiş olaylarla uygulamaya iletir ve harici NuGet bağımlılığı olmadan ayarlanabilir timeout/retry desteği sağlar.
 
 ## Özellikler
